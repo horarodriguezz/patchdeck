@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - linux/**
+  errors:
+    # package:flutter/material.dart is deprecated in favour of package:material_ui,
+    # but third-party packages (flutter_markdown_plus) still depend on it.
+    deprecated_member_use: ignore
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    prefer_const_constructors: true
+    avoid_print: true

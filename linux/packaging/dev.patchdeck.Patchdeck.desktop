@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Patchdeck
+GenericName=Git patch reviewer
+Comment=Review git patches with comments, labels and notes
+Exec=@BINDIR@/patchdeck %F
+Icon=dev.patchdeck.Patchdeck
+Terminal=false
+Categories=Development;RevisionControl;
+Keywords=git;diff;patch;review;
+StartupWMClass=dev.patchdeck.patchdeck

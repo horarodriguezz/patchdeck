@@ -1,0 +1,54 @@
+From 3f2a1b Mon Sep 17 00:00:00 2001
+From: Dev <dev@example.com>
+Subject: [PATCH] Improve greeting
+
+Adds a name parameter.
+---
+ src/greet.ts   | 6 ++++--
+ styles/app.css | 3 ++-
+ 2 files changed
+
+diff --git a/src/greet.ts b/src/greet.ts
+index 1111111..2222222 100644
+--- a/src/greet.ts
++++ b/src/greet.ts
+@@ -1,6 +1,8 @@
+ // Greeting helpers
+-export function greet() {
+-  return "hello";
++export function greet(name: string): string {
++  /* say hi
++     politely */
++  return `hello ${name}`;
+ }
+ 
+ export const VERSION = 1;
+diff --git a/styles/app.css b/styles/app.css
+index 3333333..4444444 100644
+--- a/styles/app.css
++++ b/styles/app.css
+@@ -10,3 +10,4 @@ body {
+   margin: 0;
+-  color: #333;
++  color: #222;
++  padding: 4px !important;
+ }
+diff --git a/old.txt b/new.txt
+similarity index 100%
+rename from old.txt
+rename to new.txt
+diff --git a/logo.png b/logo.png
+new file mode 100644
+index 0000000..5555555
+Binary files /dev/null and b/logo.png differ
+diff --git a/gone.js b/gone.js
+deleted file mode 100644
+index 6666666..0000000
+--- a/gone.js
++++ /dev/null
+@@ -1,2 +0,0 @@
+-const a = 1;
+--- not a header
+\ No newline at end of file
+-- 
+2.43.0
