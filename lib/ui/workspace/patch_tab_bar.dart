@@ -107,7 +107,7 @@ class _PatchTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
+    final primary = theme.colorScheme.onSurface;
     return GestureDetector(
       onSecondaryTapDown: (d) => _menu(context, d.globalPosition),
       child: InkWell(

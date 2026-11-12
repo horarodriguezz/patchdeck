@@ -35,6 +35,7 @@ class SettingsController extends ChangeNotifier {
   void setFontSize(double v) => update(_settings.copyWith(codeFontSize: v));
   void setDiffMode(DiffMode m) => update(_settings.copyWith(diffMode: m));
   void setSyntaxHighlight(bool v) => update(_settings.copyWith(syntaxHighlight: v));
+  void setCodeFont(String family) => update(_settings.copyWith(codeFontFamily: family.trim()));
 
   void upsertLabel({String? id, required String title, required String description, required int color}) {
     final labels = List.of(_settings.labels);

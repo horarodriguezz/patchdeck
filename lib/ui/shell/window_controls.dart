@@ -15,22 +15,25 @@ class WindowDragArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!_desktop) return child;
-    return Stack(fit: StackFit.passthrough, children: [
-      Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onPanStart: (_) => windowManager.startDragging(),
-          onDoubleTap: () async {
-            if (await windowManager.isMaximized()) {
-              windowManager.unmaximize();
-            } else {
-              windowManager.maximize();
-            }
-          },
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => windowManager.startDragging(),
+            onDoubleTap: () async {
+              if (await windowManager.isMaximized()) {
+                windowManager.unmaximize();
+              } else {
+                windowManager.maximize();
+              }
+            },
+          ),
         ),
-      ),
-      child,
-    ]);
+        child,
+      ],
+    );
   }
 }
 

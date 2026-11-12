@@ -45,8 +45,11 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
   quedan a la derecha, editables. Desde ahí se copian todos los comentarios o la review completa en Markdown.
 - **Fuente del sistema**: la UI y el código usan las fuentes del escritorio (GNOME `gsettings`, KDE
   `kdeglobals`, o los alias `sans-serif` / `monospace` de fontconfig).
-- **Configuración**: temas (Oscuro, Claro, Medianoche, Arena, Bosque), tamaño de fuente del código, vista por
-  defecto, resaltado on/off, y **etiquetas** (título, descripción, color; reordenables).
+- **Configuración** (popup con buscador): tema con vista previa del diff (Grafito, Lino, Oscuro, Claro,
+  Medianoche, Arena, Bosque), vista por defecto, fuente y tamaño del código, resaltado on/off, **etiquetas**
+  (título, descripción, color; reordenables) y dónde se guardan los datos.
+- **Estética sobria** tipo shadcn: superficies neutras, bordes de 1 px, sin sombras ni efectos de Material.
+  Se ve igual en Linux y en Windows (Flutter dibuja toda la interfaz; sólo cambia la fuente del sistema).
 
 | Patches lado a lado | Editor de comentario |
 |---|---|

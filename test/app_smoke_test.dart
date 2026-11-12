@@ -1,3 +1,4 @@
+import 'dart:ui' show Size;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +13,10 @@ import 'package:patchdeck/state/settings_controller.dart';
 import 'package:patchdeck/state/shell_controller.dart';
 
 void main() {
-  testWidgets('home renders and opens settings', (tester) async {
+  testWidgets('shell renders and opens settings', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final tmp = Directory.systemTemp.createTempSync('patchdeck_test');
     final paths = AppPaths(configDir: Directory('${tmp.path}/c'), dataDir: Directory('${tmp.path}/d'));
     final repo = ReviewRepository(paths);
@@ -34,6 +38,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Configuración'));
     await tester.pumpAndSettle();
-    expect(find.text('Medianoche'), findsOneWidget);
+    expect(find.text('Tema'), findsOneWidget);
+    expect(find.text('Grafito'), findsOneWidget);
+    await tester.tap(find.text('Etiquetas').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Nueva etiqueta'), findsOneWidget);
   });
 }

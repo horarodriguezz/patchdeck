@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'appearance_section.dart';
-import 'labels_section.dart';
+import '../../app_scope.dart';
+import 'settings_pages.dart';
 
 Future<void> showSettingsDialog(BuildContext context) =>
     showDialog<void>(context: context, builder: (_) => const SettingsDialog());
 
-/// Settings popup: Appearance and Labels.
+/// Settings popup: search + navigation on the left, rows on the right.
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
 
@@ -15,40 +15,42 @@ class SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<SettingsDialog> {
-  int _index = 0;
+  SettingsPage _page = SettingsPage.general;
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final theme = Theme.of(context);
+    final q = _query.text.trim();
     return Dialog(
       clipBehavior: Clip.antiAlias,
-      backgroundColor: theme.scaffoldBackgroundColor,
       insetPadding: const EdgeInsets.all(32),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.dividerColor),
-      ),
       child: SizedBox(
-        width: (size.width * 0.8).clamp(640.0, 1040.0),
-        height: (size.height * 0.8).clamp(480.0, 760.0),
+        width: (size.width * 0.78).clamp(720.0, 1040.0),
+        height: (size.height * 0.82).clamp(500.0, 800.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
               height: 48,
-              padding: const EdgeInsets.only(left: 20, right: 8),
+              padding: const EdgeInsets.only(left: 18, right: 8),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
                 border: Border(bottom: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
                 children: [
-                  Text('Configuración', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  Text('Configuración', style: theme.textTheme.titleSmall?.copyWith(fontSize: 14.5)),
                   const Spacer(),
                   IconButton(
                     tooltip: 'Cerrar',
-                    icon: const Icon(Icons.close, size: 20),
+                    icon: const Icon(Icons.close, size: 18),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -56,31 +58,106 @@ class _SettingsDialogState extends State<SettingsDialog> {
             ),
             Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  NavigationRail(
-                    selectedIndex: _index,
-                    onDestinationSelected: (i) => setState(() => _index = i),
-                    labelType: NavigationRailLabelType.all,
-                    backgroundColor: theme.colorScheme.surface,
-                    destinations: const [
-                      NavigationRailDestination(
-                        icon: Icon(Icons.palette_outlined),
-                        selectedIcon: Icon(Icons.palette),
-                        label: Text('Apariencia'),
-                      ),
-                      NavigationRailDestination(
-                        icon: Icon(Icons.label_outline),
-                        selectedIcon: Icon(Icons.label),
-                        label: Text('Etiquetas'),
-                      ),
-                    ],
+                  Container(
+                    width: 230,
+                    decoration: BoxDecoration(
+                      color: theme.scaffoldBackgroundColor,
+                      border: Border(right: BorderSide(color: theme.dividerColor)),
+                    ),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+                      children: [
+                        TextField(
+                          controller: _query,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(fontSize: 13),
+                          decoration: const InputDecoration(
+                            hintText: 'Buscar',
+                            prefixIcon: Icon(Icons.search, size: 17),
+                            prefixIconConstraints: BoxConstraints(minWidth: 32),
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        for (final group in settingsNav) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+                            child: Text(group.$1, style: theme.textTheme.bodySmall),
+                          ),
+                          for (final page in group.$2)
+                            _NavItem(
+                              icon: page.icon,
+                              label: page.title,
+                              selected: q.isEmpty && page == _page,
+                              onTap: () => setState(() {
+                                _page = page;
+                                _query.clear();
+                              }),
+                            ),
+                          const SizedBox(height: 14),
+                        ],
+                      ],
+                    ),
                   ),
-                  const VerticalDivider(width: 1),
-                  Expanded(child: _index == 0 ? const AppearanceSection() : const LabelsSection()),
+                  Expanded(
+                    child: ListenableBuilder(
+                      listenable: AppScope.of(context).settings,
+                      builder: (context, _) => ListView(
+                        padding: const EdgeInsets.fromLTRB(32, 22, 32, 32),
+                        children: q.isEmpty ? buildSettingsPage(context, _page) : buildSearchResults(context, q),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: selected ? theme.colorScheme.onSurface.withValues(alpha: 0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(7),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(7),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 17,
+                  color: selected ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

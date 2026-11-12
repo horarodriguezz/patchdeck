@@ -35,9 +35,13 @@ class LabelChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label.title,
-            style: TextStyle(color: fg, fontSize: dense ? 11 : 12, fontWeight: FontWeight.w600, height: 1.3),
+          Flexible(
+            child: Text(
+              label.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: fg, fontSize: dense ? 11 : 12, fontWeight: FontWeight.w600, height: 1.3),
+            ),
           ),
           if (onDeleted != null) ...[
             const SizedBox(width: 4),

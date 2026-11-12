@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_scope.dart';
 import 'theme/app_themes.dart';
+import 'theme/theme_builder.dart';
 import 'ui/shell/app_shell.dart';
 
 class PatchdeckApp extends StatelessWidget {
@@ -13,6 +14,7 @@ class PatchdeckApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) {
+        codeFontOverride = settings.settings.codeFontFamily;
         final theme = buildThemeData(themeSpecById(settings.settings.themeId));
         return MaterialApp(
           title: 'Patchdeck',

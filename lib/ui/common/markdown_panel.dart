@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../theme/app_themes.dart';
+import 'ui_kit.dart';
 
 /// Free-form markdown area with Edit / Preview modes.
 class MarkdownPanel extends StatefulWidget {
@@ -33,15 +34,14 @@ class _MarkdownPanelState extends State<MarkdownPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          child: SegmentedButton<bool>(
-            showSelectedIcon: false,
-            style: const ButtonStyle(visualDensity: VisualDensity.compact),
-            segments: const [
-              ButtonSegment(value: false, label: Text('Editar'), icon: Icon(Icons.edit_outlined, size: 16)),
-              ButtonSegment(value: true, label: Text('Vista previa'), icon: Icon(Icons.visibility_outlined, size: 16)),
-            ],
-            selected: {_preview},
-            onSelectionChanged: (s) => setState(() => _preview = s.first),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AppSegmented<bool>(
+              value: _preview,
+              options: const [false, true],
+              labelOf: (v) => v ? 'Vista previa' : 'Editar',
+              onChanged: (v) => setState(() => _preview = v),
+            ),
           ),
         ),
         const Divider(),

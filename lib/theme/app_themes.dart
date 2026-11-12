@@ -25,8 +25,12 @@ class AppThemeSpec {
   final DiffTheme diff;
 }
 
-/// Code font: the desktop's monospace font, falling back to fontconfig's alias.
-String get monoFamily => SystemFonts.current.mono ?? 'monospace';
+/// User override for the code font (Settings → Editor de código); empty = system.
+String codeFontOverride = '';
+
+/// Code font: the user's choice, else the desktop's monospace font.
+String get monoFamily =>
+    codeFontOverride.trim().isNotEmpty ? codeFontOverride.trim() : (SystemFonts.current.mono ?? 'monospace');
 const List<String> monoFallback = ['monospace', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono', 'Consolas'];
 
 /// UI font: the desktop's interface font (null keeps Flutter's default).
@@ -34,6 +38,78 @@ String? get uiFamily => SystemFonts.current.ui;
 const List<String> uiFallback = ['sans-serif', 'Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans', 'Segoe UI'];
 
 final List<AppThemeSpec> appThemes = [
+  // Warm neutral dark, low-contrast chrome, terracotta accent.
+  const AppThemeSpec(
+    id: 'graphite',
+    name: 'Grafito',
+    brightness: Brightness.dark,
+    primary: Color(0xFFD97757),
+    background: Color(0xFF1F1E1D),
+    surface: Color(0xFF262624),
+    surfaceAlt: Color(0xFF30302E),
+    border: Color(0xFF3B3A37),
+    text: Color(0xFFEDECE8),
+    muted: Color(0xFFA19F97),
+    diff: DiffTheme(
+      codeBg: Color(0xFF262624),
+      codeFg: Color(0xFFE3E1DA),
+      lineNoFg: Color(0xFF75736C),
+      addBg: Color(0x2E3FA066),
+      addGutterBg: Color(0x4D3FA066),
+      delBg: Color(0x2EE0584C),
+      delGutterBg: Color(0x4DE0584C),
+      hunkBg: Color(0xFF2C2B29),
+      hunkFg: Color(0xFF8E8C84),
+      emptyBg: Color(0xFF222120),
+      selectedBg: Color(0x33D97757),
+      selectedGutterBg: Color(0x80D97757),
+      fileHeaderBg: Color(0xFF2C2B29),
+      border: Color(0xFF3B3A37),
+      keyword: Color(0xFFE08E73),
+      string: Color(0xFF9FC98A),
+      comment: Color(0xFF85837B),
+      number: Color(0xFFD6B26E),
+      function: Color(0xFF8FB4E8),
+      typeName: Color(0xFFC8A5E0),
+      property: Color(0xFF7FC4C0),
+    ),
+  ),
+  // Warm paper light.
+  const AppThemeSpec(
+    id: 'linen',
+    name: 'Lino',
+    brightness: Brightness.light,
+    primary: Color(0xFFC96442),
+    background: Color(0xFFF5F4EE),
+    surface: Color(0xFFFAF9F5),
+    surfaceAlt: Color(0xFFEFEDE5),
+    border: Color(0xFFE2DFD4),
+    text: Color(0xFF2F2C24),
+    muted: Color(0xFF77736A),
+    diff: DiffTheme(
+      codeBg: Color(0xFFFFFFFF),
+      codeFg: Color(0xFF2F2C24),
+      lineNoFg: Color(0xFFA29E93),
+      addBg: Color(0xFFE5F4E3),
+      addGutterBg: Color(0xFFCDEACB),
+      delBg: Color(0xFFFBE6E1),
+      delGutterBg: Color(0xFFF5CFC6),
+      hunkBg: Color(0xFFF1EFE8),
+      hunkFg: Color(0xFF8A867B),
+      emptyBg: Color(0xFFF7F6F1),
+      selectedBg: Color(0xFFFCEBD9),
+      selectedGutterBg: Color(0xFFF4C9A6),
+      fileHeaderBg: Color(0xFFF4F2EC),
+      border: Color(0xFFE2DFD4),
+      keyword: Color(0xFFB4492E),
+      string: Color(0xFF3D7A35),
+      comment: Color(0xFF9A968A),
+      number: Color(0xFF9A6A12),
+      function: Color(0xFF2E62B0),
+      typeName: Color(0xFF7A4BB0),
+      property: Color(0xFF237570),
+    ),
+  ),
   const AppThemeSpec(
     id: 'dark',
     name: 'Oscuro',
@@ -212,64 +288,3 @@ final List<AppThemeSpec> appThemes = [
 ];
 
 AppThemeSpec themeSpecById(String id) => appThemes.firstWhere((t) => t.id == id, orElse: () => appThemes.first);
-
-ThemeData buildThemeData(AppThemeSpec s) {
-  final scheme = ColorScheme.fromSeed(seedColor: s.primary, brightness: s.brightness).copyWith(
-    primary: s.primary,
-    surface: s.surface,
-    onSurface: s.text,
-    onSurfaceVariant: s.muted,
-    surfaceContainerLowest: s.background,
-    surfaceContainerLow: s.background,
-    surfaceContainer: s.surface,
-    surfaceContainerHigh: s.surfaceAlt,
-    surfaceContainerHighest: s.surfaceAlt,
-    outline: s.border,
-    outlineVariant: s.border,
-  );
-  final base = ThemeData(
-    colorScheme: scheme,
-    brightness: s.brightness,
-    useMaterial3: true,
-    fontFamily: uiFamily,
-    fontFamilyFallback: uiFallback,
-  );
-  return base.copyWith(
-    scaffoldBackgroundColor: s.background,
-    dividerColor: s.border,
-    dividerTheme: DividerThemeData(color: s.border, space: 1, thickness: 1),
-    appBarTheme: AppBarTheme(
-      backgroundColor: s.surface,
-      foregroundColor: s.text,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      toolbarHeight: 52,
-      shape: Border(bottom: BorderSide(color: s.border)),
-      titleTextStyle: base.textTheme.titleMedium?.copyWith(color: s.text, fontWeight: FontWeight.w600),
-    ),
-    cardTheme: CardThemeData(
-      color: s.surface,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: s.border),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      isDense: true,
-      filled: true,
-      fillColor: s.background,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: s.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: s.border),
-      ),
-    ),
-    tooltipTheme: const TooltipThemeData(waitDuration: Duration(milliseconds: 500)),
-    extensions: [s.diff],
-  );
-}

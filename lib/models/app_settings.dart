@@ -10,6 +10,7 @@ class AppSettings {
     required this.diffMode,
     required this.syntaxHighlight,
     required this.labels,
+    this.codeFontFamily = '',
   });
 
   final String themeId;
@@ -18,8 +19,11 @@ class AppSettings {
   final bool syntaxHighlight;
   final List<ReviewLabel> labels;
 
+  /// Custom monospace family for code; empty uses the system font.
+  final String codeFontFamily;
+
   factory AppSettings.defaults() => AppSettings(
-    themeId: 'dark',
+    themeId: 'graphite',
     codeFontSize: 13,
     diffMode: DiffMode.unified,
     syntaxHighlight: true,
@@ -39,6 +43,7 @@ class AppSettings {
     DiffMode? diffMode,
     bool? syntaxHighlight,
     List<ReviewLabel>? labels,
+    String? codeFontFamily,
   }) => AppSettings(
     themeId: themeId ?? this.themeId,
     codeFontSize: codeFontSize ?? this.codeFontSize,
@@ -67,6 +72,7 @@ class AppSettings {
       codeFontSize: ((a['codeFontSize'] as num?)?.toDouble() ?? d.codeFontSize).clamp(10, 22).toDouble(),
       diffMode: DiffMode.values.asNameMap()[a['diffMode']] ?? d.diffMode,
       syntaxHighlight: a['syntaxHighlight'] as bool? ?? d.syntaxHighlight,
+      codeFontFamily: a['codeFont'] as String? ?? '',
       labels: labels is List
           ? [for (final l in labels) ReviewLabel.fromJson((l as Map).cast<String, dynamic>())]
           : d.labels,

@@ -39,15 +39,20 @@ class AppTopBar extends StatelessWidget {
                     : const Padding(padding: EdgeInsets.only(left: 6, right: 6), child: ShellButtons()),
               ),
             ),
-            if (title != null)
-              Flexible(
-                child: DefaultTextStyle.merge(
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                  child: title!,
-                ),
-              ),
-            const Spacer(),
+            // Title takes the free space (left-aligned) so actions and window
+            // buttons always sit flush right.
+            Expanded(
+              child: title == null
+                  ? const SizedBox.shrink()
+                  : Align(
+                      alignment: Alignment.centerLeft,
+                      child: DefaultTextStyle.merge(
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                        child: title!,
+                      ),
+                    ),
+            ),
             ...actions,
             const SizedBox(width: 6),
             const WindowControls(),
