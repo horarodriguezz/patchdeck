@@ -87,30 +87,38 @@ class _SidePanelState extends State<SidePanel> with SingleTickerProviderStateMix
     );
 
     final expanded = RepaintBoundary(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (!isLeft) handle,
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            SizedBox(
-              height: 40,
-              child: Row(children: [
-                Expanded(child: widget.header),
-                IconButton(
-                  tooltip: 'Colapsar',
-                  visualDensity: VisualDensity.compact,
-                  iconSize: 18,
-                  icon: Icon(isLeft ? Icons.keyboard_double_arrow_left : Icons.keyboard_double_arrow_right),
-                  onPressed: widget.onToggle,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!isLeft) handle,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 40,
+                  child: Row(
+                    children: [
+                      Expanded(child: widget.header),
+                      IconButton(
+                        tooltip: 'Colapsar',
+                        visualDensity: VisualDensity.compact,
+                        iconSize: 18,
+                        icon: Icon(isLeft ? Icons.keyboard_double_arrow_left : Icons.keyboard_double_arrow_right),
+                        onPressed: widget.onToggle,
+                      ),
+                      const SizedBox(width: 2),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 2),
-              ]),
+                const Divider(),
+                Expanded(child: widget.child),
+              ],
             ),
-            const Divider(),
-            Expanded(child: widget.child),
-          ]),
-        ),
-        if (isLeft) handle,
-      ]),
+          ),
+          if (isLeft) handle,
+        ],
+      ),
     );
 
     return AnimatedBuilder(
@@ -122,29 +130,31 @@ class _SidePanelState extends State<SidePanel> with SingleTickerProviderStateMix
           width: width,
           decoration: decoration,
           clipBehavior: Clip.hardEdge,
-          child: Stack(children: [
-            if (t > 0)
-              Positioned.fill(
-                child: OverflowBox(
-                  alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-                  minWidth: _width,
-                  maxWidth: _width,
-                  child: Opacity(opacity: Curves.easeIn.transform(t), child: expanded),
+          child: Stack(
+            children: [
+              if (t > 0)
+                Positioned.fill(
+                  child: OverflowBox(
+                    alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
+                    minWidth: _width,
+                    maxWidth: _width,
+                    child: Opacity(opacity: Curves.easeIn.transform(t), child: expanded),
+                  ),
                 ),
-              ),
-            if (t < 1)
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: isLeft ? 0 : null,
-                right: isLeft ? null : 0,
-                width: SidePanel.railWidth,
-                child: IgnorePointer(
-                  ignoring: t > 0,
-                  child: Opacity(opacity: (1 - t * 2).clamp(0.0, 1.0), child: widget.rail),
+              if (t < 1)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: isLeft ? 0 : null,
+                  right: isLeft ? null : 0,
+                  width: SidePanel.railWidth,
+                  child: IgnorePointer(
+                    ignoring: t > 0,
+                    child: Opacity(opacity: (1 - t * 2).clamp(0.0, 1.0), child: widget.rail),
+                  ),
                 ),
-              ),
-          ]),
+            ],
+          ),
         );
       },
     );
@@ -165,15 +175,17 @@ class SimpleRail extends StatelessWidget {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
-      child: Column(children: [
-        const SizedBox(height: 10),
-        Icon(icon, size: 18, color: muted),
-        const SizedBox(height: 12),
-        RotatedBox(
-          quarterTurns: isLeft ? 3 : 1,
-          child: Text(title, style: TextStyle(color: muted, fontSize: 12, letterSpacing: 0.5)),
-        ),
-      ]),
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Icon(icon, size: 18, color: muted),
+          const SizedBox(height: 12),
+          RotatedBox(
+            quarterTurns: isLeft ? 3 : 1,
+            child: Text(title, style: TextStyle(color: muted, fontSize: 12, letterSpacing: 0.5)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -185,10 +197,12 @@ class PanelTitle extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-        const SizedBox(width: 12),
-        Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-      ]);
+  Widget build(BuildContext context) => Row(
+    children: [
+      const SizedBox(width: 12),
+      Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      const SizedBox(width: 8),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    ],
+  );
 }

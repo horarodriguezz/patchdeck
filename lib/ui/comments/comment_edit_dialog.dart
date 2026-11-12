@@ -41,25 +41,29 @@ class _CommentEditDialogState extends State<CommentEditDialog> {
         title: const Text('Editar comentario'),
         content: SizedBox(
           width: 560,
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.locations, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-            const SizedBox(height: 12),
-            LabelPicker(
-              labels: AppScope.of(context).settings.labels,
-              selected: _labels,
-              focusNode: _labelsFocus,
-              onChanged: (v) => setState(() => _labels = v),
-              onDone: _textFocus.requestFocus,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _text,
-              focusNode: _textFocus,
-              minLines: 3,
-              maxLines: 10,
-              decoration: const InputDecoration(hintText: 'Comentario', contentPadding: EdgeInsets.all(10)),
-            ),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(widget.locations, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 12),
+              LabelPicker(
+                labels: AppScope.of(context).settings.labels,
+                selected: _labels,
+                focusNode: _labelsFocus,
+                onChanged: (v) => setState(() => _labels = v),
+                onDone: _textFocus.requestFocus,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _text,
+                focusNode: _textFocus,
+                minLines: 3,
+                maxLines: 10,
+                decoration: const InputDecoration(hintText: 'Comentario', contentPadding: EdgeInsets.all(10)),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),

@@ -4,9 +4,9 @@ import 'comment_format.dart';
 
 /// Active (non-dismissed) comments touching [patchId], in creation order.
 List<ReviewComment> commentsForPatch(Review review, String patchId, {bool includeDismissed = false}) => [
-      for (final c in review.comments)
-        if ((includeDismissed || !c.dismissed) && c.anchors.any((a) => a.patchId == patchId)) c,
-    ];
+  for (final c in review.comments)
+    if ((includeDismissed || !c.dismissed) && c.anchors.any((a) => a.patchId == patchId)) c,
+];
 
 /// Plain-text copy of every active comment, grouped by patch.
 String exportAllCommentsText(Review review, ReviewLabel? Function(String) labelById) {

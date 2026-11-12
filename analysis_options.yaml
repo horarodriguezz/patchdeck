@@ -4,6 +4,7 @@ analyzer:
   exclude:
     - build/**
     - linux/**
+    - windows/**
   errors:
     # package:flutter/material.dart is deprecated in favour of package:material_ui,
     # but third-party packages (flutter_markdown_plus) still depend on it.

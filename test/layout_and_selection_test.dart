@@ -17,7 +17,14 @@ void main() {
   final metrics = DiffMetrics(13);
 
   DiffLayout build(DiffMode mode, {Map<LineKey, List<String>> comments = const {}, Set<int> collapsed = const {}}) =>
-      buildDiffLayout(patchId: 'p1', patch: parsed, mode: mode, metrics: metrics, collapsedFiles: collapsed, commentsByLine: comments);
+      buildDiffLayout(
+        patchId: 'p1',
+        patch: parsed,
+        mode: mode,
+        metrics: metrics,
+        collapsedFiles: collapsed,
+        commentsByLine: comments,
+      );
 
   test('offsets are monotonic and indexAt is consistent', () {
     final l = build(DiffMode.unified);
@@ -43,9 +50,16 @@ void main() {
   });
 
   test('comment rows are placed after the last anchored line, once per file', () {
-    final comments = {('p1', 0, 0, 1): ['c1'], ('p1', 0, 0, 3): ['c1'], ('p1', 1, 0, 2): ['c1']};
+    final comments = {
+      ('p1', 0, 0, 1): ['c1'],
+      ('p1', 0, 0, 3): ['c1'],
+      ('p1', 1, 0, 2): ['c1'],
+    };
     final l = build(DiffMode.unified, comments: comments);
-    final idx = [for (var i = 0; i < l.rows.length; i++) if (l.rows[i].kind == RowKind.comment) i];
+    final idx = [
+      for (var i = 0; i < l.rows.length; i++)
+        if (l.rows[i].kind == RowKind.comment) i,
+    ];
     expect(idx.length, 2);
     final before = l.rows[idx.first - 1];
     expect((before.file, before.a), (0, 3));
@@ -126,8 +140,14 @@ void main() {
       formatComments([c, dismissed, other], labelById: (id) => labels[id], patchNames: names, patchId: 'p2'),
       '[bug, nit] c.ts L1: Arreglar esto\n\nc.ts L1: otro',
     );
-    final review = Review(id: 'r', title: 'R', createdAt: DateTime(2024), updatedAt: DateTime(2024),
-        patches: [PatchEntry(id: 'p2', name: 'B', raw: '', createdAt: DateTime(2024))], comments: [c, dismissed]);
+    final review = Review(
+      id: 'r',
+      title: 'R',
+      createdAt: DateTime(2024),
+      updatedAt: DateTime(2024),
+      patches: [PatchEntry(id: 'p2', name: 'B', raw: '', createdAt: DateTime(2024))],
+      comments: [c, dismissed],
+    );
     expect(commentsForPatch(review, 'p2').length, 1);
     expect(exportAllCommentsText(review, (id) => labels[id]), startsWith('Patch B\n\n[bug, nit] c.ts L1'));
     expect(ReviewComment.fromJson(dismissed.toJson()).dismissed, isTrue);

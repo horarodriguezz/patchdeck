@@ -27,11 +27,11 @@ class AppThemeSpec {
 
 /// Code font: the desktop's monospace font, falling back to fontconfig's alias.
 String get monoFamily => SystemFonts.current.mono ?? 'monospace';
-const List<String> monoFallback = ['monospace', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono'];
+const List<String> monoFallback = ['monospace', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono', 'Consolas'];
 
 /// UI font: the desktop's interface font (null keeps Flutter's default).
 String? get uiFamily => SystemFonts.current.ui;
-const List<String> uiFallback = ['sans-serif', 'Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans'];
+const List<String> uiFallback = ['sans-serif', 'Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans', 'Segoe UI'];
 
 final List<AppThemeSpec> appThemes = [
   const AppThemeSpec(
@@ -251,15 +251,23 @@ ThemeData buildThemeData(AppThemeSpec s) {
       color: s.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: s.border)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: s.border),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
       fillColor: s.background,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: s.border)),
-      enabledBorder:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: s.border)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: BorderSide(color: s.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: BorderSide(color: s.border),
+      ),
     ),
     tooltipTheme: const TooltipThemeData(waitDuration: Duration(milliseconds: 500)),
     extensions: [s.diff],

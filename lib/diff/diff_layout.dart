@@ -25,9 +25,7 @@ class DiffRow {
 }
 
 class DiffMetrics {
-  DiffMetrics(this.fontSize)
-      : lineHeight = (fontSize * 1.55).roundToDouble(),
-        charWidth = fontSize * 0.6;
+  DiffMetrics(this.fontSize) : lineHeight = (fontSize * 1.55).roundToDouble(), charWidth = fontSize * 0.6;
 
   final double fontSize;
   final double lineHeight;

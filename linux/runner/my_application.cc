@@ -24,14 +24,13 @@ static void my_application_activate(GApplication* application) {
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   gtk_window_set_default_size(window, 1440, 900);
 
-  // If you want to use a header bar, uncomment the following lines.
-  // Header bars are commonly used in GNOME based desktop environments and
-  // allow additional widgets to be added to the title bar.
-  // See https://docs.gtk.org/gtk3/class.HeaderBar.html
-  // GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
-  // gtk_widget_show(GTK_WIDGET(header_bar));
-  // gtk_header_bar_set_show_close_button(header_bar, TRUE);
-  // gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
+  // The app draws its own thin title bar. A header bar is installed but kept
+  // hidden: GTK then uses client-side decorations, so the window keeps its
+  // shadow and resize borders without the native (thick) title bar.
+  // window_manager finds this header bar to toggle it if ever needed.
+  GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
+  gtk_header_bar_set_show_close_button(header_bar, TRUE);
+  gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
 
   gtk_window_set_title(window, "Patchdeck");
   // Matches the installed icon / .desktop id so docks show the right icon.

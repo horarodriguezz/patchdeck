@@ -158,7 +158,10 @@ class _DiffViewState extends State<DiffView> {
       _cacheVersion = v;
       final out = <String, int>{};
       for (final c in widget.workspace.comments) {
-        final paths = <String>{for (final a in c.anchors) if (a.patchId == widget.model.id) a.path};
+        final paths = <String>{
+          for (final a in c.anchors)
+            if (a.patchId == widget.model.id) a.path,
+        };
         for (final p in paths) {
           out[p] = (out[p] ?? 0) + 1;
         }
@@ -218,10 +221,7 @@ class _DiffViewState extends State<DiffView> {
         case RowKind.comment:
           final c = widget.workspace.comment(row.commentId!);
           if (c == null) return const SizedBox.shrink();
-          final labels = <ReviewLabel>[
-            for (final id in c.labelIds)
-              ?settings.labelById(id),
-          ];
+          final labels = <ReviewLabel>[for (final id in c.labelIds) ?settings.labelById(id)];
           return CommentRow(
             comment: c,
             labels: labels,
@@ -252,37 +252,40 @@ class _DiffViewState extends State<DiffView> {
           }
           final lk = row.a >= 0 ? (pid, row.file, row.hunk, row.a) : null;
           final rk = row.b >= 0 ? (pid, row.file, row.hunk, row.b) : null;
-          return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(
-              child: LineCell(
-                line: row.a >= 0 ? hunk.lines[row.a] : null,
-                side: Side.left,
-                showOld: true,
-                showNew: false,
-                selected: lk != null && widget.selection.isSelected(lk),
-                commented: lk != null && commented.contains(lk),
-                numberWidth: numberWidth,
-                codeStyle: codeStyle,
-                onGutterDown: (s) => _beginSelection(i, s),
-                hOffset: _hx,
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: LineCell(
+                  line: row.a >= 0 ? hunk.lines[row.a] : null,
+                  side: Side.left,
+                  showOld: true,
+                  showNew: false,
+                  selected: lk != null && widget.selection.isSelected(lk),
+                  commented: lk != null && commented.contains(lk),
+                  numberWidth: numberWidth,
+                  codeStyle: codeStyle,
+                  onGutterDown: (s) => _beginSelection(i, s),
+                  hOffset: _hx,
+                ),
               ),
-            ),
-            SizedBox(width: 1, child: ColoredBox(color: dividerColor)),
-            Expanded(
-              child: LineCell(
-                line: row.b >= 0 ? hunk.lines[row.b] : null,
-                side: Side.right,
-                showOld: false,
-                showNew: true,
-                selected: rk != null && widget.selection.isSelected(rk),
-                commented: rk != null && commented.contains(rk),
-                numberWidth: numberWidth,
-                codeStyle: codeStyle,
-                onGutterDown: (s) => _beginSelection(i, s),
-                hOffset: _hx,
+              SizedBox(width: 1, child: ColoredBox(color: dividerColor)),
+              Expanded(
+                child: LineCell(
+                  line: row.b >= 0 ? hunk.lines[row.b] : null,
+                  side: Side.right,
+                  showOld: false,
+                  showNew: true,
+                  selected: rk != null && widget.selection.isSelected(rk),
+                  commented: rk != null && commented.contains(rk),
+                  numberWidth: numberWidth,
+                  codeStyle: codeStyle,
+                  onGutterDown: (s) => _beginSelection(i, s),
+                  hOffset: _hx,
+                ),
               ),
-            ),
-          ]);
+            ],
+          );
       }
     }
 
@@ -303,37 +306,47 @@ class _DiffViewState extends State<DiffView> {
     final charWidth = monoCharWidth(codeStyle);
     final gutter = unified ? numberWidth * 2 + 36 : numberWidth + 36;
 
-    final body = LayoutBuilder(builder: (context, c) {
-      final codeWidth = (unified ? c.maxWidth : (c.maxWidth - 1) / 2) - gutter;
-      final contentWidth = math.min(layout.maxLineChars, 2000) * charWidth + 32;
-      _maxHx = math.max(0.0, contentWidth - codeWidth);
-      if (_hx.value > _maxHx) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _hx.value = math.min(_hx.value, _maxHx));
-      }
-      return Stack(children: [
-        Positioned.fill(
-          child: Scrollbar(
-            controller: widget.controller,
-            child: ScrollConfiguration(behavior: noAutoBars, child: list),
-          ),
-        ),
-        if (_maxHx > 0)
-          Positioned(
-            left: unified ? gutter : 0,
-            right: 14,
-            bottom: 0,
-            child: unified
-                ? HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)
-                : Row(children: [
-                    // In split view one thumb per side, both bound to the same offset.
-                    SizedBox(width: gutter),
-                    Expanded(child: HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)),
-                    SizedBox(width: gutter + 1),
-                    Expanded(child: HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)),
-                  ]),
-          ),
-      ]);
-    });
+    final body = LayoutBuilder(
+      builder: (context, c) {
+        final codeWidth = (unified ? c.maxWidth : (c.maxWidth - 1) / 2) - gutter;
+        final contentWidth = math.min(layout.maxLineChars, 2000) * charWidth + 32;
+        _maxHx = math.max(0.0, contentWidth - codeWidth);
+        if (_hx.value > _maxHx) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _hx.value = math.min(_hx.value, _maxHx));
+        }
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: Scrollbar(
+                controller: widget.controller,
+                child: ScrollConfiguration(behavior: noAutoBars, child: list),
+              ),
+            ),
+            if (_maxHx > 0)
+              Positioned(
+                left: unified ? gutter : 0,
+                right: 14,
+                bottom: 0,
+                child: unified
+                    ? HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)
+                    : Row(
+                        children: [
+                          // In split view one thumb per side, both bound to the same offset.
+                          SizedBox(width: gutter),
+                          Expanded(
+                            child: HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth),
+                          ),
+                          SizedBox(width: gutter + 1),
+                          Expanded(
+                            child: HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth),
+                          ),
+                        ],
+                      ),
+              ),
+          ],
+        );
+      },
+    );
 
     return Listener(
       onPointerSignal: _onPointerSignal,

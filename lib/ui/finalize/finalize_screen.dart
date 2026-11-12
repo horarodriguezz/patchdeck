@@ -11,16 +11,20 @@ import '../comments/comment_card.dart';
 import '../comments/comments_tab.dart' show PatchBadge;
 import '../common/label_chip.dart';
 import '../common/markdown_panel.dart';
+import '../shell/title_bar.dart';
 import 'code_snippet.dart';
 
 /// End-of-review overview: every comment of every patch (with the code it
 /// points at), label filters, dismiss/edit/delete, and the notes on the side.
 class FinalizeScreen extends StatefulWidget {
-  const FinalizeScreen({super.key, required this.workspace, required this.onOpenInDiff});
+  const FinalizeScreen({super.key, required this.workspace, required this.onClose, required this.onOpenInDiff});
 
   final WorkspaceController workspace;
 
-  /// Called after this screen pops, to jump to a comment in the diff.
+  /// Back to the workspace.
+  final VoidCallback onClose;
+
+  /// Back to the workspace, jumping to a comment in the diff.
   final void Function(ReviewComment comment, String patchId) onOpenInDiff;
 
   @override
@@ -46,46 +50,69 @@ class _FinalizeScreenState extends State<FinalizeScreen> {
         final comments = ws.comments;
         final active = comments.where((c) => !c.dismissed).length;
 
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              tooltip: 'Volver al workspace',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-            titleSpacing: 0,
-            title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Finalizar review'),
-              Text(ws.review.title, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w400)),
-            ]),
-            actions: [
-              OutlinedButton.icon(
-                onPressed: () => actions.copyText(
-                  exportReviewMarkdown(ws.review, settings.labelById),
-                  'Review completa copiada como Markdown',
-                ),
-                icon: const Icon(Icons.description_outlined, size: 16),
-                label: const Text('Copiar como Markdown'),
+        final compact = ButtonStyle(
+          visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
+          textStyle: WidgetStatePropertyAll(theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTopBar(
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TitleBarIconButton(
+                    tooltip: 'Volver al workspace',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: widget.onClose,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text('Finalizar review'),
+                  Flexible(
+                    child: Text(
+                      '  ·  ${ws.review.title}',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontWeight: FontWeight.w400, color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: active == 0
-                    ? null
-                    : () => actions.copyText(
+              actions: [
+                OutlinedButton.icon(
+                  style: compact,
+                  onPressed: () => actions.copyText(
+                    exportReviewMarkdown(ws.review, settings.labelById),
+                    'Review completa copiada como Markdown',
+                  ),
+                  icon: const Icon(Icons.description_outlined, size: 16),
+                  label: const Text('Copiar como Markdown'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  style: compact,
+                  onPressed: active == 0
+                      ? null
+                      : () => actions.copyText(
                           exportAllCommentsText(ws.review, settings.labelById),
                           '$active ${active == 1 ? 'comentario copiado' : 'comentarios copiados'}',
                         ),
-                icon: const Icon(Icons.copy_all, size: 16),
-                label: const Text('Copiar todos los comentarios'),
+                  icon: const Icon(Icons.copy_all, size: 16),
+                  label: const Text('Copiar todos los comentarios'),
+                ),
+              ],
+            ),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: _commentsColumn(context, actions)),
+                  VerticalDivider(width: 1, color: theme.dividerColor),
+                  SizedBox(width: 400, child: _NotesColumn(workspace: ws)),
+                ],
               ),
-              const SizedBox(width: 12),
-            ],
-          ),
-          body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: _commentsColumn(context, actions)),
-            VerticalDivider(width: 1, color: theme.dividerColor),
-            SizedBox(width: 400, child: _NotesColumn(workspace: ws)),
-          ]),
+            ),
+          ],
         );
       },
     );
@@ -111,16 +138,20 @@ class _FinalizeScreenState extends State<FinalizeScreen> {
 
     final items = <Widget Function()>[
       () => _SummaryHeader(
-            total: all.length,
-            dismissed: dismissed,
-            patches: ws.patches.length,
-            labels: [for (final l in settings.labels) if (labelCounts.containsKey(l.id)) l],
-            labelCounts: labelCounts,
-            filter: _labelFilter,
-            showDismissed: _showDismissed,
-            onToggleLabel: (id) => setState(() => _labelFilter.contains(id) ? _labelFilter.remove(id) : _labelFilter.add(id)),
-            onShowDismissed: (v) => setState(() => _showDismissed = v),
-          ),
+        total: all.length,
+        dismissed: dismissed,
+        patches: ws.patches.length,
+        labels: [
+          for (final l in settings.labels)
+            if (labelCounts.containsKey(l.id)) l,
+        ],
+        labelCounts: labelCounts,
+        filter: _labelFilter,
+        showDismissed: _showDismissed,
+        onToggleLabel: (id) =>
+            setState(() => _labelFilter.contains(id) ? _labelFilter.remove(id) : _labelFilter.add(id)),
+        onShowDismissed: (v) => setState(() => _showDismissed = v),
+      ),
     ];
 
     for (final p in ws.patches) {
@@ -128,29 +159,39 @@ class _FinalizeScreenState extends State<FinalizeScreen> {
       final activeHere = inPatch.where((c) => !c.dismissed).length;
       final shown = inPatch.where(_passes).toList();
       final model = ws.model(p.id);
-      items.add(() => _PatchSectionHeader(
-            entry: p,
-            files: model?.parsed.files.length,
-            additions: model?.parsed.additions,
-            deletions: model?.parsed.deletions,
-            active: activeHere,
-            dismissed: inPatch.length - activeHere,
-            onCopy: activeHere == 0 ? null : () => actions.copyPatch(p.id),
-          ));
+      items.add(
+        () => _PatchSectionHeader(
+          entry: p,
+          files: model?.parsed.files.length,
+          additions: model?.parsed.additions,
+          deletions: model?.parsed.deletions,
+          active: activeHere,
+          dismissed: inPatch.length - activeHere,
+          onCopy: activeHere == 0 ? null : () => actions.copyPatch(p.id),
+        ),
+      );
       if (shown.isEmpty) {
-        items.add(() => Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
-              child: Text(
-                inPatch.isEmpty ? 'Sin comentarios en este patch.' : 'Ningún comentario coincide con el filtro.',
-                style: TextStyle(color: muted, fontSize: 12.5),
-              ),
-            ));
+        items.add(
+          () => Padding(
+            padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
+            child: Text(
+              inPatch.isEmpty ? 'Sin comentarios en este patch.' : 'Ningún comentario coincide con el filtro.',
+              style: TextStyle(color: muted, fontSize: 12.5),
+            ),
+          ),
+        );
         continue;
       }
       for (final c in shown) {
         items.add(() {
-          final keys = [for (final k in ws.keysFor(c)) if (k.$1 == p.id) k];
-          final others = <String>{for (final a in c.anchors) if (a.patchId != p.id) names[a.patchId] ?? '?'};
+          final keys = [
+            for (final k in ws.keysFor(c))
+              if (k.$1 == p.id) k,
+          ];
+          final others = <String>{
+            for (final a in c.anchors)
+              if (a.patchId != p.id) names[a.patchId] ?? '?',
+          };
           return Padding(
             padding: const EdgeInsets.fromLTRB(28, 0, 28, 10),
             child: CommentCard(
@@ -160,10 +201,7 @@ class _FinalizeScreenState extends State<FinalizeScreen> {
               alsoIn: others.isEmpty ? null : 'También en ${others.join(', ')}',
               maxLines: null,
               snippet: model == null || keys.isEmpty ? null : CodeSnippet(model: model, keys: keys),
-              onTap: () {
-                Navigator.pop(context);
-                widget.onOpenInDiff(c, p.id);
-              },
+              onTap: () => widget.onOpenInDiff(c, p.id),
               onCopy: () => actions.copyOne(c, patchId: p.id),
               onToggleDismissed: () => actions.toggleDismissed(c),
               onEdit: () => actions.edit(c),
@@ -217,44 +255,57 @@ class _SummaryHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     Widget stat(String value, String label) => Padding(
-          padding: const EdgeInsets.only(right: 28),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-            Text(label, style: TextStyle(color: muted, fontSize: 12)),
-          ]),
-        );
+      padding: const EdgeInsets.only(right: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: muted, fontSize: 12)),
+        ],
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          stat('${total - dismissed}', 'comentarios activos'),
-          stat('$dismissed', dismissed == 1 ? 'denegado' : 'denegados'),
-          stat('$patches', patches == 1 ? 'patch' : 'patches'),
-        ]),
-        const SizedBox(height: 16),
-        Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          Text('Filtrar:', style: TextStyle(color: muted, fontSize: 12)),
-          for (final l in labels)
-            Opacity(
-              opacity: filter.isEmpty || filter.contains(l.id) ? 1 : 0.45,
-              child: LabelChip(
-                label: l.copyWith(title: '${l.title}  ${labelCounts[l.id]}'),
-                onTap: () => onToggleLabel(l.id),
-                outlined: !filter.contains(l.id),
-              ),
-            ),
-          if (labels.isEmpty) Text('sin etiquetas', style: TextStyle(color: muted, fontSize: 12)),
-          if (dismissed > 0)
-            FilterChip(
-              visualDensity: VisualDensity.compact,
-              label: const Text('Mostrar denegados', style: TextStyle(fontSize: 12)),
-              selected: showDismissed,
-              onSelected: onShowDismissed,
-            ),
-        ]),
-        const SizedBox(height: 8),
-        Divider(color: theme.dividerColor),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              stat('${total - dismissed}', 'comentarios activos'),
+              stat('$dismissed', dismissed == 1 ? 'denegado' : 'denegados'),
+              stat('$patches', patches == 1 ? 'patch' : 'patches'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('Filtrar:', style: TextStyle(color: muted, fontSize: 12)),
+              for (final l in labels)
+                Opacity(
+                  opacity: filter.isEmpty || filter.contains(l.id) ? 1 : 0.45,
+                  child: LabelChip(
+                    label: l.copyWith(title: '${l.title}  ${labelCounts[l.id]}'),
+                    onTap: () => onToggleLabel(l.id),
+                    outlined: !filter.contains(l.id),
+                  ),
+                ),
+              if (labels.isEmpty) Text('sin etiquetas', style: TextStyle(color: muted, fontSize: 12)),
+              if (dismissed > 0)
+                FilterChip(
+                  visualDensity: VisualDensity.compact,
+                  label: const Text('Mostrar denegados', style: TextStyle(fontSize: 12)),
+                  selected: showDismissed,
+                  onSelected: onShowDismissed,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Divider(color: theme.dividerColor),
+        ],
+      ),
     );
   }
 }
@@ -283,26 +334,41 @@ class _PatchSectionHeader extends StatelessWidget {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 14, 20, 10),
-      child: Row(children: [
-        PatchBadge(name: entry.name, large: true),
-        const SizedBox(width: 12),
-        Text('$active ${active == 1 ? 'comentario' : 'comentarios'}', style: const TextStyle(fontWeight: FontWeight.w600)),
-        if (dismissed > 0) Text('  ·  $dismissed ${dismissed == 1 ? 'denegado' : 'denegados'}', style: TextStyle(color: muted, fontSize: 13)),
-        const SizedBox(width: 14),
-        if (files != null) ...[
-          Text('$files ${files == 1 ? 'archivo' : 'archivos'}', style: TextStyle(color: muted, fontSize: 12)),
-          const SizedBox(width: 8),
-          Text('+$additions', style: const TextStyle(color: Color(0xFF57AB5A), fontSize: 12, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          Text('−$deletions', style: const TextStyle(color: Color(0xFFE5534B), fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Row(
+        children: [
+          PatchBadge(name: entry.name, large: true),
+          const SizedBox(width: 12),
+          Text(
+            '$active ${active == 1 ? 'comentario' : 'comentarios'}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          if (dismissed > 0)
+            Text(
+              '  ·  $dismissed ${dismissed == 1 ? 'denegado' : 'denegados'}',
+              style: TextStyle(color: muted, fontSize: 13),
+            ),
+          const SizedBox(width: 14),
+          if (files != null) ...[
+            Text('$files ${files == 1 ? 'archivo' : 'archivos'}', style: TextStyle(color: muted, fontSize: 12)),
+            const SizedBox(width: 8),
+            Text(
+              '+$additions',
+              style: const TextStyle(color: Color(0xFF57AB5A), fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '−$deletions',
+              style: const TextStyle(color: Color(0xFFE5534B), fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+          const Spacer(),
+          TextButton.icon(
+            onPressed: onCopy,
+            icon: const Icon(Icons.copy_all, size: 16),
+            label: Text('Copiar comentarios de ${entry.name}'),
+          ),
         ],
-        const Spacer(),
-        TextButton.icon(
-          onPressed: onCopy,
-          icon: const Icon(Icons.copy_all, size: 16),
-          label: Text('Copiar comentarios de ${entry.name}'),
-        ),
-      ]),
+      ),
     );
   }
 }
@@ -318,31 +384,36 @@ class _NotesColumn extends StatelessWidget {
       color: theme.colorScheme.surface,
       child: DefaultTabController(
         length: 2,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TabBar(
-            tabAlignment: TabAlignment.start,
-            isScrollable: true,
-            dividerColor: theme.dividerColor,
-            tabs: const [
-              Tab(height: 40, icon: null, text: 'Notas'),
-              Tab(height: 40, text: 'Contexto'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(children: [
-              MarkdownPanel(
-                initialText: workspace.review.notesMarkdown,
-                onChanged: workspace.setNotes,
-                hint: 'Conclusiones, resumen, próximos pasos… (Markdown)',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TabBar(
+              tabAlignment: TabAlignment.start,
+              isScrollable: true,
+              dividerColor: theme.dividerColor,
+              tabs: const [
+                Tab(height: 40, icon: null, text: 'Notas'),
+                Tab(height: 40, text: 'Contexto'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  MarkdownPanel(
+                    initialText: workspace.review.notesMarkdown,
+                    onChanged: workspace.setNotes,
+                    hint: 'Conclusiones, resumen, próximos pasos… (Markdown)',
+                  ),
+                  MarkdownPanel(
+                    initialText: workspace.review.contextMarkdown,
+                    onChanged: workspace.setContext,
+                    hint: 'Contexto de la review (Markdown)',
+                  ),
+                ],
               ),
-              MarkdownPanel(
-                initialText: workspace.review.contextMarkdown,
-                onChanged: workspace.setContext,
-                hint: 'Contexto de la review (Markdown)',
-              ),
-            ]),
-          ),
-        ]),
+            ),
+          ],
+        ),
       ),
     );
   }

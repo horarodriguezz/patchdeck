@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_scope.dart';
 import 'theme/app_themes.dart';
-import 'ui/home/home_screen.dart';
+import 'ui/shell/app_shell.dart';
 
 class PatchdeckApp extends StatelessWidget {
   const PatchdeckApp({super.key});
@@ -19,7 +19,7 @@ class PatchdeckApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: theme,
           themeAnimationDuration: Duration.zero,
-          home: const HomeScreen(),
+          home: const AppShell(),
         );
       },
     );

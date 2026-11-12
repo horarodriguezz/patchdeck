@@ -9,6 +9,7 @@ import 'package:patchdeck/services/review_repository.dart';
 import 'package:patchdeck/services/settings_repository.dart';
 import 'package:patchdeck/state/reviews_controller.dart';
 import 'package:patchdeck/state/settings_controller.dart';
+import 'package:patchdeck/state/shell_controller.dart';
 
 void main() {
   testWidgets('home renders and opens settings', (tester) async {
@@ -17,16 +18,21 @@ void main() {
     final repo = ReviewRepository(paths);
     final reviews = ReviewsController(repo);
     await tester.runAsync(reviews.refresh);
-    await tester.pumpWidget(AppScope(
-      settings: SettingsController(SettingsRepository(paths), AppSettings.defaults()),
-      reviews: reviews,
-      reviewRepo: repo,
-      child: const PatchdeckApp(),
-    ));
+    await tester.pumpWidget(
+      AppScope(
+        settings: SettingsController(SettingsRepository(paths), AppSettings.defaults()),
+        reviews: reviews,
+        reviewRepo: repo,
+        shell: ShellController(),
+        child: const PatchdeckApp(),
+      ),
+    );
     await tester.pump();
-    expect(find.text('Patchdeck'), findsOneWidget);
-    expect(find.text('Todavía no hay reviews'), findsOneWidget);
-    await tester.tap(find.byTooltip('Configuración'));
+    expect(find.text('Ninguna review abierta'), findsOneWidget);
+    expect(find.text('Todavía no hay reviews.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Menú').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Configuración'));
     await tester.pumpAndSettle();
     expect(find.text('Medianoche'), findsOneWidget);
   });

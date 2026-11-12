@@ -53,51 +53,65 @@ class _CommentCardState extends State<CommentCard> {
 
     final body = Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 10),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Wrap(spacing: 4, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              if (dismissed) const DismissedBadge(),
-              for (final l in widget.labels) LabelChip(label: l, dense: true),
-            ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (dismissed) const DismissedBadge(),
+                    for (final l in widget.labels) LabelChip(label: l, dense: true),
+                  ],
+                ),
+              ),
+              _Action(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: widget.onCopy, visible: true),
+              _Action(
+                icon: dismissed ? Icons.restore : Icons.block,
+                tip: dismissed ? 'Restaurar' : 'Denegar',
+                onTap: widget.onToggleDismissed,
+                visible: _hover || dismissed,
+              ),
+              _Action(icon: Icons.edit_outlined, tip: 'Editar', onTap: widget.onEdit, visible: _hover),
+              _Action(icon: Icons.delete_outline, tip: 'Eliminar', onTap: widget.onDelete, visible: _hover),
+            ],
           ),
-          _Action(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: widget.onCopy, visible: true),
-          _Action(
-            icon: dismissed ? Icons.restore : Icons.block,
-            tip: dismissed ? 'Restaurar' : 'Denegar',
-            onTap: widget.onToggleDismissed,
-            visible: _hover || dismissed,
+          const SizedBox(height: 6),
+          Text(
+            widget.locations,
+            style: TextStyle(fontSize: 11.5, color: muted, fontWeight: FontWeight.w500),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          _Action(icon: Icons.edit_outlined, tip: 'Editar', onTap: widget.onEdit, visible: _hover),
-          _Action(icon: Icons.delete_outline, tip: 'Eliminar', onTap: widget.onDelete, visible: _hover),
-        ]),
-        const SizedBox(height: 6),
-        Text(
-          widget.locations,
-          style: TextStyle(fontSize: 11.5, color: muted, fontWeight: FontWeight.w500),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (widget.alsoIn != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(widget.alsoIn!, style: TextStyle(fontSize: 11, color: muted, fontStyle: FontStyle.italic)),
+          if (widget.alsoIn != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                widget.alsoIn!,
+                style: TextStyle(fontSize: 11, color: muted, fontStyle: FontStyle.italic),
+              ),
+            ),
+          if (widget.snippet != null) ...[const SizedBox(height: 8), widget.snippet!],
+          const SizedBox(height: 6),
+          Text(
+            c.text.isEmpty ? '(sin texto)' : c.text,
+            maxLines: widget.maxLines,
+            overflow: widget.maxLines == null ? null : TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: dismissed ? muted : null,
+              decoration: dismissed ? TextDecoration.lineThrough : null,
+              decorationColor: muted,
+            ),
           ),
-        if (widget.snippet != null) ...[const SizedBox(height: 8), widget.snippet!],
-        const SizedBox(height: 6),
-        Text(
-          c.text.isEmpty ? '(sin texto)' : c.text,
-          maxLines: widget.maxLines,
-          overflow: widget.maxLines == null ? null : TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13,
-            height: 1.4,
-            color: dismissed ? muted : null,
-            decoration: dismissed ? TextDecoration.lineThrough : null,
-            decorationColor: muted,
-          ),
-        ),
-      ]),
+        ],
+      ),
     );
 
     return MouseRegion(
@@ -115,10 +129,13 @@ class _CommentCardState extends State<CommentCard> {
           child: InkWell(
             onTap: widget.onTap,
             child: IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Container(width: 3, color: accent),
-                Expanded(child: body),
-              ]),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(width: 3, color: accent),
+                  Expanded(child: body),
+                ],
+              ),
             ),
           ),
         ),
@@ -140,11 +157,17 @@ class DismissedBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: muted.withValues(alpha: 0.6)),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.block, size: 11, color: muted),
-        const SizedBox(width: 3),
-        Text('denegado', style: TextStyle(fontSize: 11, color: muted, fontWeight: FontWeight.w600, height: 1.3)),
-      ]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.block, size: 11, color: muted),
+          const SizedBox(width: 3),
+          Text(
+            'denegado',
+            style: TextStyle(fontSize: 11, color: muted, fontWeight: FontWeight.w600, height: 1.3),
+          ),
+        ],
+      ),
     );
   }
 }

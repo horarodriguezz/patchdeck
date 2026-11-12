@@ -48,19 +48,29 @@ class _MarkdownPanelState extends State<MarkdownPanel> {
         Expanded(
           child: _preview
               ? (_ctrl.text.trim().isEmpty
-                  ? Center(child: Text('Nada por aquí todavía', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)))
-                  : Markdown(
-                      data: _ctrl.text,
-                      selectable: true,
-                      padding: const EdgeInsets.all(14),
-                      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                        code: TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 12.5, backgroundColor: theme.colorScheme.surfaceContainerHigh),
-                        codeblockDecoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(6),
+                    ? Center(
+                        child: Text(
+                          'Nada por aquí todavía',
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                         ),
-                      ),
-                    ))
+                      )
+                    : Markdown(
+                        data: _ctrl.text,
+                        selectable: true,
+                        padding: const EdgeInsets.all(14),
+                        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                          code: TextStyle(
+                            fontFamily: monoFamily,
+                            fontFamilyFallback: monoFallback,
+                            fontSize: 12.5,
+                            backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                          ),
+                          codeblockDecoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ))
               : Padding(
                   padding: const EdgeInsets.all(8),
                   child: TextField(
@@ -69,7 +79,12 @@ class _MarkdownPanelState extends State<MarkdownPanel> {
                     maxLines: null,
                     expands: true,
                     textAlignVertical: TextAlignVertical.top,
-                    style: TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 13, height: 1.45),
+                    style: TextStyle(
+                      fontFamily: monoFamily,
+                      fontFamilyFallback: monoFallback,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
                     decoration: InputDecoration(hintText: widget.hint, contentPadding: const EdgeInsets.all(10)),
                   ),
                 ),

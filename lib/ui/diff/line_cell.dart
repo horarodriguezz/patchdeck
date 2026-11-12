@@ -84,63 +84,67 @@ class _LineCellState extends State<LineCell> {
     final selectable = kind != LineKind.noNewline;
 
     Widget number(int? n) => Container(
-          width: widget.numberWidth,
-          color: gutterBg,
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 8),
-          child: n == null ? null : Text('$n', style: numStyle, maxLines: 1),
-        );
+      width: widget.numberWidth,
+      color: gutterBg,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 8),
+      child: n == null ? null : Text('$n', style: numStyle, maxLines: 1),
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: ColoredBox(
         color: bg,
-        child: Row(children: [
-          if (widget.showOld) number(line.oldNo),
-          if (widget.showNew) number(line.newNo),
-          // Gutter with the "+" handle.
-          SizedBox(
-            width: 22,
-            child: selectable
-                ? Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (e) {
-                      if (e.buttons == kPrimaryButton) widget.onGutterDown(widget.side);
-                    },
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Center(child: _PlusHandle(visible: _hover, commented: widget.commented)),
-                    ),
-                  )
-                : null,
-          ),
-          SizedBox(
-            width: 14,
-            child: Text(sign, style: widget.codeStyle.copyWith(color: t.lineNoFg)),
-          ),
-          Expanded(
-            child: kind == LineKind.noNewline
-                ? Text(line.text, style: numStyle.copyWith(fontStyle: FontStyle.italic), maxLines: 1)
-                : ClipRect(
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: widget.hOffset,
-                      // Only the transform rebuilds on scroll; the text is laid out once.
-                      builder: (context, x, child) => Transform.translate(offset: Offset(-x, 0), child: child),
-                      child: OverflowBox(
-                        alignment: Alignment.centerLeft,
-                        minWidth: 0,
-                        maxWidth: double.infinity,
-                        child: RichText(
-                          text: buildCodeSpan(line, widget.codeStyle.copyWith(color: t.codeFg), t.tokenColors),
-                          maxLines: 1,
-                          softWrap: false,
+        child: Row(
+          children: [
+            if (widget.showOld) number(line.oldNo),
+            if (widget.showNew) number(line.newNo),
+            // Gutter with the "+" handle.
+            SizedBox(
+              width: 22,
+              child: selectable
+                  ? Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: (e) {
+                        if (e.buttons == kPrimaryButton) widget.onGutterDown(widget.side);
+                      },
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Center(
+                          child: _PlusHandle(visible: _hover, commented: widget.commented),
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(
+              width: 14,
+              child: Text(sign, style: widget.codeStyle.copyWith(color: t.lineNoFg)),
+            ),
+            Expanded(
+              child: kind == LineKind.noNewline
+                  ? Text(line.text, style: numStyle.copyWith(fontStyle: FontStyle.italic), maxLines: 1)
+                  : ClipRect(
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: widget.hOffset,
+                        // Only the transform rebuilds on scroll; the text is laid out once.
+                        builder: (context, x, child) => Transform.translate(offset: Offset(-x, 0), child: child),
+                        child: OverflowBox(
+                          alignment: Alignment.centerLeft,
+                          minWidth: 0,
+                          maxWidth: double.infinity,
+                          child: RichText(
+                            text: buildCodeSpan(line, widget.codeStyle.copyWith(color: t.codeFg), t.tokenColors),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-          ),
-        ]),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -163,7 +167,11 @@ class _PlusHandle extends StatelessWidget {
       );
     }
     if (commented) {
-      return Container(width: 7, height: 7, decoration: BoxDecoration(color: primary, shape: BoxShape.circle));
+      return Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+      );
     }
     return const SizedBox.shrink();
   }

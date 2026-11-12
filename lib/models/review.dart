@@ -19,18 +19,18 @@ class LineAnchor {
   int get hashCode => key.hashCode;
 
   Map<String, dynamic> toJson() => {
-        'patch': patchId,
-        'path': path,
-        if (oldLine != null) 'old': oldLine,
-        if (newLine != null) 'new': newLine,
-      };
+    'patch': patchId,
+    'path': path,
+    if (oldLine != null) 'old': oldLine,
+    if (newLine != null) 'new': newLine,
+  };
 
   factory LineAnchor.fromJson(Map<String, dynamic> j) => LineAnchor(
-        patchId: j['patch'] as String,
-        path: j['path'] as String,
-        oldLine: j['old'] as int?,
-        newLine: j['new'] as int?,
-      );
+    patchId: j['patch'] as String,
+    path: j['path'] as String,
+    oldLine: j['old'] as int?,
+    newLine: j['new'] as int?,
+  );
 }
 
 class ReviewComment {
@@ -67,26 +67,26 @@ class ReviewComment {
       );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'anchors': [for (final a in anchors) a.toJson()],
-        'labels': labelIds,
-        'text': text,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        if (dismissed) 'dismissed': true,
-      };
+    'id': id,
+    'anchors': [for (final a in anchors) a.toJson()],
+    'labels': labelIds,
+    'text': text,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    if (dismissed) 'dismissed': true,
+  };
 
   factory ReviewComment.fromJson(Map<String, dynamic> j) => ReviewComment(
-        id: j['id'] as String,
-        anchors: [
-          for (final a in (j['anchors'] as List? ?? const [])) LineAnchor.fromJson((a as Map).cast<String, dynamic>())
-        ],
-        labelIds: [for (final l in (j['labels'] as List? ?? const [])) l as String],
-        text: j['text'] as String? ?? '',
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
-        dismissed: j['dismissed'] as bool? ?? false,
-      );
+    id: j['id'] as String,
+    anchors: [
+      for (final a in (j['anchors'] as List? ?? const [])) LineAnchor.fromJson((a as Map).cast<String, dynamic>()),
+    ],
+    labelIds: [for (final l in (j['labels'] as List? ?? const [])) l as String],
+    text: j['text'] as String? ?? '',
+    createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+    updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
+    dismissed: j['dismissed'] as bool? ?? false,
+  );
 }
 
 class PatchEntry {
@@ -99,19 +99,14 @@ class PatchEntry {
 
   PatchEntry copyWith({String? name}) => PatchEntry(id: id, name: name ?? this.name, raw: raw, createdAt: createdAt);
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'createdAt': createdAt.toIso8601String(),
-        'raw': raw,
-      };
+  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'createdAt': createdAt.toIso8601String(), 'raw': raw};
 
   factory PatchEntry.fromJson(Map<String, dynamic> j) => PatchEntry(
-        id: j['id'] as String,
-        name: j['name'] as String? ?? '?',
-        raw: j['raw'] as String? ?? '',
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
-      );
+    id: j['id'] as String,
+    name: j['name'] as String? ?? '?',
+    raw: j['raw'] as String? ?? '',
+    createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+  );
 }
 
 class Review {
@@ -124,8 +119,8 @@ class Review {
     this.notesMarkdown = '',
     List<PatchEntry>? patches,
     List<ReviewComment>? comments,
-  })  : patches = patches ?? [],
-        comments = comments ?? [];
+  }) : patches = patches ?? [],
+       comments = comments ?? [];
 
   final String id;
   String title;
@@ -137,41 +132,40 @@ class Review {
   final List<ReviewComment> comments;
 
   ReviewSummary get summary => ReviewSummary(
-        id: id,
-        title: title,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        patchNames: [for (final p in patches) p.name],
-        commentCount: comments.length,
-      );
+    id: id,
+    title: title,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    patchNames: [for (final p in patches) p.name],
+    commentCount: comments.length,
+  );
 
   Map<String, dynamic> toJson() => {
-        'version': 1,
-        'id': id,
-        'title': title,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        'context': contextMarkdown,
-        'notes': notesMarkdown,
-        'patches': [for (final p in patches) p.toJson()],
-        'comments': [for (final c in comments) c.toJson()],
-      };
+    'version': 1,
+    'id': id,
+    'title': title,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'context': contextMarkdown,
+    'notes': notesMarkdown,
+    'patches': [for (final p in patches) p.toJson()],
+    'comments': [for (final c in comments) c.toJson()],
+  };
 
   factory Review.fromJson(Map<String, dynamic> j) => Review(
-        id: j['id'] as String,
-        title: j['title'] as String? ?? 'Sin título',
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
-        contextMarkdown: j['context'] as String? ?? '',
-        notesMarkdown: j['notes'] as String? ?? '',
-        patches: [
-          for (final p in (j['patches'] as List? ?? const [])) PatchEntry.fromJson((p as Map).cast<String, dynamic>())
-        ],
-        comments: [
-          for (final c in (j['comments'] as List? ?? const []))
-            ReviewComment.fromJson((c as Map).cast<String, dynamic>())
-        ],
-      );
+    id: j['id'] as String,
+    title: j['title'] as String? ?? 'Sin título',
+    createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+    updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
+    contextMarkdown: j['context'] as String? ?? '',
+    notesMarkdown: j['notes'] as String? ?? '',
+    patches: [
+      for (final p in (j['patches'] as List? ?? const [])) PatchEntry.fromJson((p as Map).cast<String, dynamic>()),
+    ],
+    comments: [
+      for (final c in (j['comments'] as List? ?? const [])) ReviewComment.fromJson((c as Map).cast<String, dynamic>()),
+    ],
+  );
 }
 
 /// Lightweight metadata kept in the reviews index so the home screen never
@@ -194,28 +188,28 @@ class ReviewSummary {
   final int commentCount;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        'patches': patchNames,
-        'comments': commentCount,
-      };
+    'id': id,
+    'title': title,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'patches': patchNames,
+    'comments': commentCount,
+  };
 
   factory ReviewSummary.fromJson(Map<String, dynamic> j) => ReviewSummary(
-        id: j['id'] as String,
-        title: j['title'] as String? ?? '',
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
-        patchNames: [for (final p in (j['patches'] as List? ?? const [])) p as String],
-        commentCount: j['comments'] as int? ?? 0,
-      );
+    id: j['id'] as String,
+    title: j['title'] as String? ?? '',
+    createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+    updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
+    patchNames: [for (final p in (j['patches'] as List? ?? const [])) p as String],
+    commentCount: j['comments'] as int? ?? 0,
+  );
 }
 
 /// A, B, ..., Z, AA, AB, ... — first free name in the sequence.
 String nextPatchName(Iterable<String> existing) {
   final taken = existing.toSet();
-  for (var i = 0;; i++) {
+  for (var i = 0; ; i++) {
     final name = _alpha(i);
     if (!taken.contains(name)) return name;
   }

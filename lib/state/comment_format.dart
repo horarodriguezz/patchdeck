@@ -31,11 +31,10 @@ String formatComments(
   required ReviewLabel? Function(String) labelById,
   required Map<String, String> patchNames,
   String? patchId,
-}) =>
-    [
-      for (final c in comments)
-        if (!c.dismissed) formatComment(c, labelById: labelById, patchNames: patchNames, patchId: patchId),
-    ].join('\n\n');
+}) => [
+  for (final c in comments)
+    if (!c.dismissed) formatComment(c, labelById: labelById, patchNames: patchNames, patchId: patchId),
+].join('\n\n');
 
 String describeLocations(List<LineAnchor> anchors, {required Map<String, String> patchNames, String? patchId}) {
   final byPatch = <String, Map<String, List<LineAnchor>>>{};
@@ -55,8 +54,14 @@ String describeLocations(List<LineAnchor> anchors, {required Map<String, String>
 
 /// "L3-L5, L9" for new-side lines, "L7-L8 (eliminadas)" for deleted lines.
 String lineRanges(List<LineAnchor> anchors) {
-  final news = <int>{for (final a in anchors) if (a.newLine != null) a.newLine!}.toList()..sort();
-  final olds = <int>{for (final a in anchors) if (a.newLine == null && a.oldLine != null) a.oldLine!}.toList()..sort();
+  final news = <int>{
+    for (final a in anchors)
+      if (a.newLine != null) a.newLine!,
+  }.toList()..sort();
+  final olds = <int>{
+    for (final a in anchors)
+      if (a.newLine == null && a.oldLine != null) a.oldLine!,
+  }.toList()..sort();
   final out = <String>[];
   if (news.isNotEmpty) out.add(_compress(news));
   if (olds.isNotEmpty) out.add('${_compress(olds)} (${olds.length == 1 ? 'eliminada' : 'eliminadas'})');

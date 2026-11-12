@@ -198,9 +198,7 @@ String _expandTabs(String s) {
 }
 
 class _HunkBuilder {
-  _HunkBuilder(this.header, this.oldNo, this.newNo, this.section)
-      : oldStart = oldNo,
-        newStart = newNo;
+  _HunkBuilder(this.header, this.oldNo, this.newNo, this.section) : oldStart = oldNo, newStart = newNo;
   final String header;
   final int oldStart;
   final int newStart;
@@ -209,8 +207,7 @@ class _HunkBuilder {
   int newNo;
   final List<DiffLine> lines = [];
 
-  DiffHunk build() =>
-      DiffHunk(header: header, oldStart: oldStart, newStart: newStart, section: section, lines: lines);
+  DiffHunk build() => DiffHunk(header: header, oldStart: oldStart, newStart: newStart, section: section, lines: lines);
 }
 
 class _FileBuilder {

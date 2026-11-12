@@ -14,6 +14,7 @@ import '../diff/comment_callbacks.dart';
 import '../diff/comment_composer.dart';
 import '../diff/panes_view.dart';
 import '../finalize/finalize_screen.dart';
+import '../shell/title_bar.dart';
 
 import 'add_patch_dialog.dart';
 import 'left_panel.dart';
@@ -32,6 +33,8 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   WorkspaceController? _ws;
   final SelectionController _selection = SelectionController();
   bool _notFound = false;
+  bool _finalizing = false;
+  late final AppScope _scope = AppScope.of(context);
 
   @override
   void didChangeDependencies() {
@@ -40,7 +43,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   }
 
   Future<void> _load() async {
-    final scope = AppScope.of(context);
+    final scope = _scope;
     final review = await scope.reviewRepo.load(widget.reviewId);
     if (!mounted) return;
     if (review == null) {
@@ -51,16 +54,18 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       repo: scope.reviewRepo,
       review: review,
       highlight: scope.settings.settings.syntaxHighlight,
+      // Keep the sidebar (titles, counts) in sync with saved changes.
+      onSaved: scope.reviews.refresh,
     );
     scope.settings.addListener(_onSettings);
     setState(() => _ws = ws);
   }
 
-  void _onSettings() => _ws?.setHighlight(AppScope.of(context).settings.settings.syntaxHighlight);
+  void _onSettings() => _ws?.setHighlight(_scope.settings.settings.syntaxHighlight);
 
   @override
   void dispose() {
-    final scope = AppScope.of(context);
+    final scope = _scope;
     scope.settings.removeListener(_onSettings);
     final ws = _ws;
     if (ws != null) {
@@ -105,9 +110,12 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     final actions = CommentActions(context, _ws!);
     return CommentCallbacks(
       edit: _editComment,
-      delete: (c) => actions.delete(c, afterDelete: () {
-        if (_selection.editingCommentId == c.id) _selection.clear();
-      }),
+      delete: (c) => actions.delete(
+        c,
+        afterDelete: () {
+          if (_selection.editingCommentId == c.id) _selection.clear();
+        },
+      ),
       copy: (c, patchId) => actions.copyOne(c, patchId: patchId),
       toggleDismissed: actions.toggleDismissed,
     );
@@ -115,17 +123,15 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
 
   void _openFinalize() {
     _selection.clear();
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => FinalizeScreen(
-        workspace: _ws!,
-        onOpenInDiff: (c, patchId) {
-          final ws = _ws!;
-          final k = ws.firstKeyOf(c, patchId) ?? ws.firstKeyOf(c);
-          if (k != null) ws.reveal(k);
-          _selection.setSelection(ws.keysFor(c), editing: c.id);
-        },
-      ),
-    ));
+    setState(() => _finalizing = true);
+  }
+
+  void _openInDiff(ReviewComment c, String patchId) {
+    final ws = _ws!;
+    setState(() => _finalizing = false);
+    final k = ws.firstKeyOf(c, patchId) ?? ws.firstKeyOf(c);
+    if (k != null) ws.reveal(k);
+    _selection.setSelection(ws.keysFor(c), editing: c.id);
   }
 
   Future<void> _renameReview() async {
@@ -136,11 +142,13 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   void _copyMarkdown() {
     final settings = AppScope.of(context).settings;
     Clipboard.setData(ClipboardData(text: exportReviewMarkdown(_ws!.review, settings.labelById)));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Resumen en Markdown copiado al portapapeles'),
-      behavior: SnackBarBehavior.floating,
-      width: 420,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Resumen en Markdown copiado al portapapeles'),
+        behavior: SnackBarBehavior.floating,
+        width: 420,
+      ),
+    );
   }
 
   // ------------------------------------------------------------- build
@@ -148,82 +156,138 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   @override
   Widget build(BuildContext context) {
     if (_notFound) {
-      return Scaffold(appBar: AppBar(), body: const Center(child: Text('No se encontró la review')));
+      return const Column(
+        children: [
+          AppTopBar(),
+          Expanded(child: Center(child: Text('No se encontró la review'))),
+        ],
+      );
     }
     final ws = _ws;
-    if (ws == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    final settings = AppScope.of(context).settings;
+    if (ws == null) {
+      return const Column(
+        children: [
+          AppTopBar(),
+          Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
+      );
+    }
+    final settings = _scope.settings;
+
+    if (_finalizing) {
+      return FinalizeScreen(
+        workspace: ws,
+        onClose: () => setState(() => _finalizing = false),
+        onOpenInDiff: _openInDiff,
+      );
+    }
 
     return ListenableBuilder(
       listenable: Listenable.merge([ws, settings]),
       builder: (context, _) {
         final mode = settings.settings.diffMode;
+        final theme = Theme.of(context);
         return CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape): _selection.clear,
-          },
+          bindings: {const SingleActivator(LogicalKeyboardKey.escape): _selection.clear},
           child: Focus(
             autofocus: true,
-            child: Scaffold(
-              appBar: AppBar(
-                titleSpacing: 0,
-                title: InkWell(
-                  onTap: _renameReview,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    child: Text(ws.review.title),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppTopBar(
+                  title: Tooltip(
+                    message: 'Renombrar',
+                    child: InkWell(
+                      onTap: _renameReview,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Text(ws.review.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
                   ),
+                  actions: [
+                    SegmentedButton<DiffMode>(
+                      showSelectedIcon: false,
+                      style: ButtonStyle(
+                        visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
+                        textStyle: WidgetStatePropertyAll(theme.textTheme.labelMedium),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
+                      ),
+                      segments: const [
+                        ButtonSegment(
+                          value: DiffMode.unified,
+                          icon: Icon(Icons.view_agenda_outlined, size: 15),
+                          label: Text('Unificada'),
+                        ),
+                        ButtonSegment(
+                          value: DiffMode.split,
+                          icon: Icon(Icons.vertical_split_outlined, size: 15),
+                          label: Text('Dividida'),
+                        ),
+                      ],
+                      selected: {mode},
+                      onSelectionChanged: (s) => settings.setDiffMode(s.first),
+                    ),
+                    const SizedBox(width: 6),
+                    TitleBarIconButton(
+                      tooltip: 'Copiar resumen (Markdown)',
+                      icon: const Icon(Icons.ios_share),
+                      onPressed: _copyMarkdown,
+                    ),
+                    TitleBarIconButton(
+                      tooltip: ws.leftOpen ? 'Ocultar contexto y comentarios' : 'Mostrar contexto y comentarios',
+                      selected: ws.leftOpen,
+                      icon: Icon(ws.leftOpen ? Icons.forum : Icons.forum_outlined),
+                      onPressed: ws.toggleLeft,
+                    ),
+                    TitleBarIconButton(
+                      tooltip: ws.rightOpen ? 'Ocultar notas' : 'Mostrar notas',
+                      selected: ws.rightOpen,
+                      icon: Icon(ws.rightOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined),
+                      onPressed: ws.toggleRight,
+                    ),
+                    const SizedBox(width: 6),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
+                        textStyle: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      onPressed: _openFinalize,
+                      icon: const Icon(Icons.task_alt, size: 16),
+                      label: const Text('Finalizar review'),
+                    ),
+                  ],
                 ),
-                actions: [
-                  SegmentedButton<DiffMode>(
-                    showSelectedIcon: false,
-                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                    segments: const [
-                      ButtonSegment(value: DiffMode.unified, icon: Icon(Icons.view_agenda_outlined, size: 16), label: Text('Unificada')),
-                      ButtonSegment(value: DiffMode.split, icon: Icon(Icons.vertical_split_outlined, size: 16), label: Text('Dividida')),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LeftPanel(workspace: ws, selection: _selection),
+                      Expanded(child: _center(ws, mode)),
+                      SidePanel(
+                        header: const PanelTitle(icon: Icons.sticky_note_2_outlined, title: 'Notas'),
+                        rail: SimpleRail(
+                          icon: Icons.sticky_note_2_outlined,
+                          title: 'Notas',
+                          onTap: ws.toggleRight,
+                          isLeft: false,
+                        ),
+                        side: AxisDirection.right,
+                        open: ws.rightOpen,
+                        onToggle: ws.toggleRight,
+                        initialWidth: 320,
+                        child: MarkdownPanel(
+                          initialText: ws.review.notesMarkdown,
+                          onChanged: ws.setNotes,
+                          hint: 'Tus anotaciones libres (Markdown)',
+                        ),
+                      ),
                     ],
-                    selected: {mode},
-                    onSelectionChanged: (s) => settings.setDiffMode(s.first),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(tooltip: 'Copiar resumen (Markdown)', icon: const Icon(Icons.ios_share), onPressed: _copyMarkdown),
-                  IconButton(
-                    tooltip: ws.leftOpen ? 'Ocultar contexto' : 'Mostrar contexto',
-                    icon: Icon(ws.leftOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined),
-                    onPressed: ws.toggleLeft,
-                  ),
-                  IconButton(
-                    tooltip: ws.rightOpen ? 'Ocultar notas' : 'Mostrar notas',
-                    icon: Transform.flip(flipX: true, child: Icon(ws.rightOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined)),
-                    onPressed: ws.toggleRight,
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _openFinalize,
-                    icon: const Icon(Icons.task_alt, size: 18),
-                    label: const Text('Finalizar review'),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-              ),
-              body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                LeftPanel(workspace: ws, selection: _selection),
-                Expanded(child: _center(ws, mode)),
-                SidePanel(
-                  header: const PanelTitle(icon: Icons.sticky_note_2_outlined, title: 'Notas'),
-                  rail: SimpleRail(icon: Icons.sticky_note_2_outlined, title: 'Notas', onTap: ws.toggleRight, isLeft: false),
-                  side: AxisDirection.right,
-                  open: ws.rightOpen,
-                  onToggle: ws.toggleRight,
-                  initialWidth: 320,
-                  child: MarkdownPanel(
-                    initialText: ws.review.notesMarkdown,
-                    onChanged: ws.setNotes,
-                    hint: 'Tus anotaciones libres (Markdown)',
                   ),
                 ),
-              ]),
+              ],
             ),
           ),
         );
@@ -232,44 +296,44 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   }
 
   Widget _center(WorkspaceController ws, DiffMode mode) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      PatchTabBar(workspace: ws, onAdd: _addPatch, onRename: _renamePatch, onDelete: _deletePatch),
-      Expanded(
-        child: ws.patches.isEmpty
-            ? _NoPatches(onAdd: _addPatch)
-            : Stack(children: [
-                Positioned.fill(
-                  child: PanesView(
-                    workspace: ws,
-                    selection: _selection,
-                    mode: mode,
-                    callbacks: _callbacks(),
-                  ),
-                ),
-                ListenableBuilder(
-                  listenable: _selection,
-                  builder: (context, _) {
-                    if (_selection.isEmpty) return const SizedBox.shrink();
-                    return Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 760),
-                          child: CommentComposer(
-                            key: ValueKey('composer-${_selection.session}'),
-                            workspace: ws,
-                            selection: _selection,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PatchTabBar(workspace: ws, onAdd: _addPatch, onRename: _renamePatch, onDelete: _deletePatch),
+        Expanded(
+          child: ws.patches.isEmpty
+              ? _NoPatches(onAdd: _addPatch)
+              : Stack(
+                  children: [
+                    Positioned.fill(
+                      child: PanesView(workspace: ws, selection: _selection, mode: mode, callbacks: _callbacks()),
+                    ),
+                    ListenableBuilder(
+                      listenable: _selection,
+                      builder: (context, _) {
+                        if (_selection.isEmpty) return const SizedBox.shrink();
+                        return Positioned(
+                          left: 16,
+                          right: 16,
+                          bottom: 16,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 760),
+                              child: CommentComposer(
+                                key: ValueKey('composer-${_selection.session}'),
+                                workspace: ws,
+                                selection: _selection,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ]),
-      ),
-    ]);
+        ),
+      ],
+    );
   }
 }
 
@@ -281,15 +345,21 @@ class _NoPatches extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.difference_outlined, size: 56, color: muted),
-        const SizedBox(height: 12),
-        Text('Esta review no tiene patches', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text('Agrega la salida de git diff / git format-patch. Cada patch se abre en su propia pestaña.', style: TextStyle(color: muted)),
-        const SizedBox(height: 16),
-        FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add), label: const Text('Agregar patch')),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.difference_outlined, size: 56, color: muted),
+          const SizedBox(height: 12),
+          Text('Esta review no tiene patches', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            'Agrega la salida de git diff / git format-patch. Cada patch se abre en su propia pestaña.',
+            style: TextStyle(color: muted),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add), label: const Text('Agregar patch')),
+        ],
+      ),
     );
   }
 }

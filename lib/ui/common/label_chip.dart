@@ -4,7 +4,14 @@ import '../../models/label.dart';
 
 /// GitHub-style pill. Text color is chosen for contrast with the label color.
 class LabelChip extends StatelessWidget {
-  const LabelChip({super.key, required this.label, this.onDeleted, this.dense = false, this.onTap, this.outlined = false});
+  const LabelChip({
+    super.key,
+    required this.label,
+    this.onDeleted,
+    this.dense = false,
+    this.onTap,
+    this.outlined = false,
+  });
 
   final ReviewLabel label;
   final VoidCallback? onDeleted;
@@ -28,8 +35,10 @@ class LabelChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label.title,
-              style: TextStyle(color: fg, fontSize: dense ? 11 : 12, fontWeight: FontWeight.w600, height: 1.3)),
+          Text(
+            label.title,
+            style: TextStyle(color: fg, fontSize: dense ? 11 : 12, fontWeight: FontWeight.w600, height: 1.3),
+          ),
           if (onDeleted != null) ...[
             const SizedBox(width: 4),
             InkWell(
@@ -43,6 +52,9 @@ class LabelChip extends StatelessWidget {
     final withTip = label.description.isEmpty ? chip : Tooltip(message: label.description, child: chip);
     return onTap == null
         ? withTip
-        : MouseRegion(cursor: SystemMouseCursors.click, child: GestureDetector(onTap: onTap, child: withTip));
+        : MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(onTap: onTap, child: withTip),
+          );
   }
 }

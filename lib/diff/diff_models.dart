@@ -55,10 +55,9 @@ class DiffFile {
   /// Path used for anchoring comments.
   String get path => status == FileStatus.deleted ? oldPath : newPath;
 
-  String get displayPath =>
-      (status == FileStatus.renamed || status == FileStatus.copied) && oldPath != newPath
-          ? '$oldPath → $newPath'
-          : path;
+  String get displayPath => (status == FileStatus.renamed || status == FileStatus.copied) && oldPath != newPath
+      ? '$oldPath → $newPath'
+      : path;
 }
 
 class ParsedPatch {

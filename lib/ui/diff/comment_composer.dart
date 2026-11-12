@@ -77,52 +77,76 @@ class _CommentComposerState extends State<CommentComposer> {
           child: Material(
             elevation: 12,
             color: theme.colorScheme.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: theme.dividerColor)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: theme.dividerColor),
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(children: [
-                  Icon(editing ? Icons.edit_note : Icons.add_comment_outlined, size: 18, color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(editing ? 'Editando comentario · $scope' : 'Comentar $scope',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  Text('Ctrl+clic agrega líneas · Esc cancela', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-                  IconButton(
-                    tooltip: 'Cancelar',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: widget.selection.clear,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        editing ? Icons.edit_note : Icons.add_comment_outlined,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        editing ? 'Editando comentario · $scope' : 'Comentar $scope',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Ctrl+clic agrega líneas · Esc cancela',
+                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      IconButton(
+                        tooltip: 'Cancelar',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: widget.selection.clear,
+                      ),
+                    ],
                   ),
-                ]),
-                const SizedBox(height: 8),
-                LabelPicker(
-                  labels: labels,
-                  selected: _labels,
-                  focusNode: _labelsFocus,
-                  onChanged: (v) => setState(() => _labels = v),
-                  onDone: _textFocus.requestFocus,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _text,
-                  focusNode: _textFocus,
-                  minLines: 2,
-                  maxLines: 6,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(hintText: 'Escribe un comentario…', contentPadding: EdgeInsets.all(10)),
-                ),
-                const SizedBox(height: 10),
-                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  TextButton(onPressed: widget.selection.clear, child: const Text('Cancelar')),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _submit,
-                    icon: const Icon(Icons.check, size: 16),
-                    label: Text(editing ? 'Guardar  (Ctrl+Enter)' : 'Comentar  (Ctrl+Enter)'),
+                  const SizedBox(height: 8),
+                  LabelPicker(
+                    labels: labels,
+                    selected: _labels,
+                    focusNode: _labelsFocus,
+                    onChanged: (v) => setState(() => _labels = v),
+                    onDone: _textFocus.requestFocus,
                   ),
-                ]),
-              ]),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _text,
+                    focusNode: _textFocus,
+                    minLines: 2,
+                    maxLines: 6,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                      hintText: 'Escribe un comentario…',
+                      contentPadding: EdgeInsets.all(10),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: widget.selection.clear, child: const Text('Cancelar')),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: _submit,
+                        icon: const Icon(Icons.check, size: 16),
+                        label: Text(editing ? 'Guardar  (Ctrl+Enter)' : 'Comentar  (Ctrl+Enter)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );

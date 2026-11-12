@@ -31,41 +31,41 @@ class LeftPanel extends StatelessWidget {
       open: ws.leftOpen,
       onToggle: ws.toggleLeft,
       initialWidth: 360,
-      header: Row(children: [
-        const SizedBox(width: 6),
-        _TabButton(
-          icon: Icons.description_outlined,
-          label: 'Contexto',
-          selected: ws.leftTab == 0,
-          onTap: () => ws.setLeftTab(0),
-        ),
-        _TabButton(
-          icon: Icons.forum_outlined,
-          label: 'Comentarios',
-          badge: count,
-          selected: ws.leftTab == 1,
-          onTap: () => ws.setLeftTab(1),
-        ),
-      ]),
-      rail: Column(children: [
-        const SizedBox(height: 6),
-        IconButton(
-          tooltip: 'Contexto',
-          iconSize: 18,
-          icon: const Icon(Icons.description_outlined),
-          onPressed: () => ws.openLeftTab(0),
-        ),
-        IconButton(
-          tooltip: 'Comentarios',
-          iconSize: 18,
-          icon: Badge(
-            isLabelVisible: count > 0,
-            label: Text('$count'),
-            child: const Icon(Icons.forum_outlined),
+      header: Row(
+        children: [
+          const SizedBox(width: 6),
+          _TabButton(
+            icon: Icons.description_outlined,
+            label: 'Contexto',
+            selected: ws.leftTab == 0,
+            onTap: () => ws.setLeftTab(0),
           ),
-          onPressed: () => ws.openLeftTab(1),
-        ),
-      ]),
+          _TabButton(
+            icon: Icons.forum_outlined,
+            label: 'Comentarios',
+            badge: count,
+            selected: ws.leftTab == 1,
+            onTap: () => ws.setLeftTab(1),
+          ),
+        ],
+      ),
+      rail: Column(
+        children: [
+          const SizedBox(height: 6),
+          IconButton(
+            tooltip: 'Contexto',
+            iconSize: 18,
+            icon: const Icon(Icons.description_outlined),
+            onPressed: () => ws.openLeftTab(0),
+          ),
+          IconButton(
+            tooltip: 'Comentarios',
+            iconSize: 18,
+            icon: Badge(isLabelVisible: count > 0, label: Text('$count'), child: const Icon(Icons.forum_outlined)),
+            onPressed: () => ws.openLeftTab(1),
+          ),
+        ],
+      ),
       child: IndexedStack(
         index: ws.leftTab,
         sizing: StackFit.expand,
@@ -83,7 +83,13 @@ class LeftPanel extends StatelessWidget {
 }
 
 class _TabButton extends StatelessWidget {
-  const _TabButton({required this.icon, required this.label, required this.selected, required this.onTap, this.badge = 0});
+  const _TabButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+  });
   final IconData icon;
   final String label;
   final bool selected;
@@ -103,19 +109,31 @@ class _TabButton extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: selected ? color : Colors.transparent, width: 2)),
         ),
-        child: Row(children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w600 : FontWeight.w500, color: selected ? null : color)),
-          if (badge > 0) ...[
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(999)),
-              child: Text('$badge', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? null : color,
+              ),
             ),
+            if (badge > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text('$badge', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+              ),
+            ],
           ],
-        ]),
+        ),
       ),
     );
   }

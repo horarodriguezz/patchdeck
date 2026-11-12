@@ -25,11 +25,11 @@ class PatchModel {
   String get id => entry.id;
 
   LineAnchor _anchor(DiffFile file, DiffLine l) => LineAnchor(
-        patchId: entry.id,
-        path: file.path,
-        oldLine: l.kind == LineKind.add ? null : l.oldNo,
-        newLine: l.kind == LineKind.del ? null : l.newNo,
-      );
+    patchId: entry.id,
+    path: file.path,
+    oldLine: l.kind == LineKind.add ? null : l.oldNo,
+    newLine: l.kind == LineKind.del ? null : l.newNo,
+  );
 
   LineAnchor anchorFor(LineKey k) {
     final file = parsed.files[k.$2];

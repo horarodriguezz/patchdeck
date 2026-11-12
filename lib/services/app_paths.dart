@@ -1,9 +1,12 @@
 import 'dart:io';
 
-/// XDG Base Directory locations.
+/// Where settings and reviews live.
 ///
+/// Linux (XDG Base Directory):
 /// * Settings (small, hand-editable): `$XDG_CONFIG_HOME/patchdeck/settings.json`
 /// * Reviews (data, can be big):     `$XDG_DATA_HOME/patchdeck/reviews/<id>.json`
+///
+/// Windows: both under `%APPDATA%\Patchdeck\`.
 class AppPaths {
   AppPaths({required this.configDir, required this.dataDir});
 
@@ -14,6 +17,12 @@ class AppPaths {
 
   factory AppPaths.fromEnvironment() {
     final env = Platform.environment;
+    if (Platform.isWindows) {
+      // %APPDATA%\Patchdeck\settings.json and %APPDATA%\Patchdeck\reviews\
+      final appData = env['APPDATA'] ?? '${env['USERPROFILE'] ?? Directory.current.path}\\AppData\\Roaming';
+      final dir = Directory('$appData\\Patchdeck');
+      return AppPaths(configDir: dir, dataDir: dir);
+    }
     final home = env['HOME'] ?? Directory.current.path;
     String xdg(String key, String fallback) {
       final v = env[key];

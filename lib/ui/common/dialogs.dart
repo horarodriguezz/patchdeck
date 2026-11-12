@@ -29,7 +29,12 @@ Future<String?> promptText(
   );
 }
 
-Future<bool> confirmDialog(BuildContext context, {required String title, required String message, String confirm = 'Eliminar'}) async {
+Future<bool> confirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirm = 'Eliminar',
+}) async {
   final r = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -51,4 +56,17 @@ Future<bool> confirmDialog(BuildContext context, {required String title, require
 String formatDate(DateTime d) {
   String two(int v) => v.toString().padLeft(2, '0');
   return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
+}
+
+/// "hace 5 min", "hace 3 h", "ayer", or a date.
+String relativeTime(DateTime d, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  final diff = n.difference(d);
+  if (diff.inMinutes < 1) return 'ahora';
+  if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'hace ${diff.inHours} h';
+  if (diff.inDays == 1) return 'ayer';
+  if (diff.inDays < 7) return 'hace ${diff.inDays} días';
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${two(d.day)}/${two(d.month)}/${d.year}';
 }

@@ -13,7 +13,7 @@ import 'patch_model.dart';
 /// Owns one open review: its patches (parsed lazily, off-thread), comments,
 /// markdown panels and per-pane view state. Persists with a short debounce.
 class WorkspaceController extends ChangeNotifier {
-  WorkspaceController({required this.repo, required this.review, required this.highlight}) {
+  WorkspaceController({required this.repo, required this.review, required this.highlight, this.onSaved}) {
     for (final p in review.patches) {
       _parse(p);
     }
@@ -22,6 +22,9 @@ class WorkspaceController extends ChangeNotifier {
 
   final ReviewRepository repo;
   final Review review;
+
+  /// Called after each persisted save (e.g. to refresh the reviews list).
+  final VoidCallback? onSaved;
   bool highlight;
 
   final Map<String, PatchModel> _models = {};
@@ -76,7 +79,12 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   PatchEntry addPatch(String name, String raw) {
-    final p = PatchEntry(id: newId(), name: name.trim().isEmpty ? nextPatchName(patches.map((e) => e.name)) : name.trim(), raw: raw, createdAt: DateTime.now());
+    final p = PatchEntry(
+      id: newId(),
+      name: name.trim().isEmpty ? nextPatchName(patches.map((e) => e.name)) : name.trim(),
+      raw: raw,
+      createdAt: DateTime.now(),
+    );
     review.patches.add(p);
     _parse(p);
     _visible
@@ -106,7 +114,10 @@ class WorkspaceController extends ChangeNotifier {
     // Drop anchors pointing at the removed patch; drop comments left empty.
     for (var i = review.comments.length - 1; i >= 0; i--) {
       final c = review.comments[i];
-      final anchors = [for (final a in c.anchors) if (a.patchId != id) a];
+      final anchors = [
+        for (final a in c.anchors)
+          if (a.patchId != id) a,
+      ];
       if (anchors.isEmpty) {
         review.comments.removeAt(i);
       } else if (anchors.length != c.anchors.length) {
@@ -237,14 +248,16 @@ class WorkspaceController extends ChangeNotifier {
 
   void addComment(Iterable<LineKey> keys, List<String> labelIds, String text) {
     final now = DateTime.now();
-    review.comments.add(ReviewComment(
-      id: newId(),
-      anchors: anchorsFor(keys),
-      labelIds: labelIds,
-      text: text,
-      createdAt: now,
-      updatedAt: now,
-    ));
+    review.comments.add(
+      ReviewComment(
+        id: newId(),
+        anchors: anchorsFor(keys),
+        labelIds: labelIds,
+        text: text,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
     _commentsVersion++;
     _changed();
   }
@@ -305,7 +318,8 @@ class WorkspaceController extends ChangeNotifier {
     for (final k in keysFor(c)) {
       if (patchId != null && k.$1 != patchId) continue;
       if (best == null ||
-          (k.$1 == best.$1 && (k.$2 < best.$2 || (k.$2 == best.$2 && (k.$3 < best.$3 || (k.$3 == best.$3 && k.$4 < best.$4)))))) {
+          (k.$1 == best.$1 &&
+              (k.$2 < best.$2 || (k.$2 == best.$2 && (k.$3 < best.$3 || (k.$3 == best.$3 && k.$4 < best.$4)))))) {
         best = k;
       }
     }
@@ -387,13 +401,18 @@ class WorkspaceController extends ChangeNotifier {
   void _scheduleSave() {
     review.updatedAt = DateTime.now();
     _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 400), () => repo.save(review));
+    _saveTimer = Timer(const Duration(milliseconds: 400), _save);
+  }
+
+  Future<void> _save() async {
+    await repo.save(review);
+    onSaved?.call();
   }
 
   Future<void> flush() async {
     if (_saveTimer?.isActive ?? false) {
       _saveTimer!.cancel();
-      await repo.save(review);
+      await _save();
     }
   }
 

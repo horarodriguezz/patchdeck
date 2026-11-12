@@ -1,13 +1,17 @@
 # Patchdeck
 
-Aplicación nativa para Linux (Flutter/Dart) para **analizar git patches** estilo code review de GitHub:
+Aplicación de escritorio nativa para **Linux y Windows** (Flutter/Dart) para **analizar git patches** estilo code review de GitHub:
 pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y llevas tus notas en Markdown.
 
-![Vista unificada con comentarios](docs/screenshots/unified.png)
+![Panel de reviews y workspace](docs/screenshots/workspace.png)
 
 ## Funcionalidades
 
-- **Reviews**: la pantalla inicial lista tus reviews (crear, renombrar, eliminar).
+- **Panel lateral de reviews** (como la lista de conversaciones de un chat): siempre disponible, con búsqueda,
+  crear / renombrar / eliminar. Se colapsa al abrir una review y se vuelve a mostrar con el botón de panel de
+  la barra superior. El menú ≡ tiene *Nueva review* y *Configuración*.
+- **Barra de título propia, fina** (sin la barra nativa gruesa): arrastrar para mover, doble clic para maximizar,
+  botones discretos de minimizar / maximizar / cerrar.
 - **Workspace** por review:
   - Columna izquierda (colapsable, redimensionable y animada) con dos pestañas:
     - **Contexto**: Markdown libre, p. ej. la descripción del PR.
@@ -50,6 +54,20 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 | **Pestaña de comentarios** | **Finalizar review** |
 | ![](docs/screenshots/comments-tab.png) | ![](docs/screenshots/finalize.png) |
 
+## Descargas
+
+En [Releases](https://github.com/horarodriguezz/patchdeck/releases) hay builds listos:
+
+| Sistema | Archivo |
+|---|---|
+| Windows 10/11 | `PatchdeckSetup-<versión>.exe` (instalador, sin admin) o `…-windows-x64-portable.zip` |
+| Linux x64 | `patchdeck-<versión>-linux-x64.tar.gz` (binario precompilado) |
+
+> En Windows el instalador no está firmado: la primera vez SmartScreen muestra *"Windows protegió tu PC"* →
+> **Más información → Ejecutar de todas formas**.
+
+Para publicar una versión: `git tag v0.3.0 && git push origin v0.3.0` (el workflow *Release* compila y sube todo).
+
 ## Instalación (Fedora / Ubuntu)
 
 Un solo script que funciona en ambas: instala las dependencias de compilación (`dnf` o `apt`, pide `sudo`),
@@ -91,7 +109,8 @@ Otros: `make run` (modo debug), `make test`, `make analyze`, `make install` / `m
 
 ## Dónde se guardan los datos
 
-Siguiendo la especificación XDG:
+En Windows todo va en `%APPDATA%\Patchdeck\` (`settings.json` y `reviews\`). En Linux, siguiendo la
+especificación XDG:
 
 | Qué | Ruta |
 |---|---|
@@ -112,7 +131,7 @@ lib/
   services/    rutas XDG, JSON atómico, repositorios de settings y reviews
   state/       controllers (settings, reviews, workspace, selección), PatchModel, export Markdown
   theme/       temas y DiffTheme (ThemeExtension con colores de diff y sintaxis)
-  ui/          home/, settings/, workspace/, diff/, comments/, finalize/, common/
+  ui/          shell/ (sidebar, barra de título), settings/, workspace/, diff/, comments/, finalize/, common/
 ```
 
 - **Parseo y tokenizado fuera del hilo de UI** (`Isolate.run`) para patches grandes; se hace una sola vez.

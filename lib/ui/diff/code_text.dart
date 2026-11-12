@@ -23,13 +23,12 @@ TextSpan buildCodeSpan(DiffLine line, TextStyle base, List<Color?> colors) {
     if (s >= text.length) break;
     if (e > text.length) e = text.length;
     if (s > pos) children.add(TextSpan(text: text.substring(pos, s)));
-    children.add(TextSpan(
-      text: text.substring(s, e),
-      style: TextStyle(
-        color: colors[k],
-        fontStyle: k == TokenKind.comment ? FontStyle.italic : null,
+    children.add(
+      TextSpan(
+        text: text.substring(s, e),
+        style: TextStyle(color: colors[k], fontStyle: k == TokenKind.comment ? FontStyle.italic : null),
       ),
-    ));
+    );
     pos = e;
   }
   if (pos < text.length) children.add(TextSpan(text: text.substring(pos)));

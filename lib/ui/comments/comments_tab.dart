@@ -42,21 +42,31 @@ class _CommentsTabState extends State<CommentsTab> {
       total += all.length;
       dismissedCount += all.length - active;
       final shown = _showDismissed ? all : all.where((c) => !c.dismissed).toList();
-      items.add(() => _PatchHeader(
-            name: names[pid] ?? '?',
-            active: active,
-            dismissed: all.length - active,
-            onCopy: active == 0 ? null : () => actions.copyPatch(pid),
-          ));
+      items.add(
+        () => _PatchHeader(
+          name: names[pid] ?? '?',
+          active: active,
+          dismissed: all.length - active,
+          onCopy: active == 0 ? null : () => actions.copyPatch(pid),
+        ),
+      );
       if (shown.isEmpty) {
-        items.add(() => Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Text('Sin comentarios. Selecciona líneas con + para comentar.', style: TextStyle(color: muted, fontSize: 12)),
-            ));
+        items.add(
+          () => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Text(
+              'Sin comentarios. Selecciona líneas con + para comentar.',
+              style: TextStyle(color: muted, fontSize: 12),
+            ),
+          ),
+        );
       }
       for (final c in shown) {
         items.add(() {
-          final others = <String>{for (final a in c.anchors) if (a.patchId != pid) names[a.patchId] ?? '?'};
+          final others = <String>{
+            for (final a in c.anchors)
+              if (a.patchId != pid) names[a.patchId] ?? '?',
+          };
           return Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
             child: CommentCard(
@@ -68,42 +78,52 @@ class _CommentsTabState extends State<CommentsTab> {
               onCopy: () => actions.copyOne(c, patchId: pid),
               onToggleDismissed: () => actions.toggleDismissed(c),
               onEdit: () => _open(c, pid),
-              onDelete: () => actions.delete(c, afterDelete: () {
-                if (widget.selection.editingCommentId == c.id) widget.selection.clear();
-              }),
+              onDelete: () => actions.delete(
+                c,
+                afterDelete: () {
+                  if (widget.selection.editingCommentId == c.id) widget.selection.clear();
+                },
+              ),
             ),
           );
         });
       }
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 6),
-        child: Row(children: [
-          Expanded(
-            child: Text(
-              total == 0 ? 'Sin comentarios' : '$total ${total == 1 ? 'comentario' : 'comentarios'}${dismissedCount > 0 ? ' · $dismissedCount ${dismissedCount == 1 ? 'denegado' : 'denegados'}' : ''}',
-              style: TextStyle(fontSize: 12, color: muted),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  total == 0
+                      ? 'Sin comentarios'
+                      : '$total ${total == 1 ? 'comentario' : 'comentarios'}${dismissedCount > 0 ? ' · $dismissedCount ${dismissedCount == 1 ? 'denegado' : 'denegados'}' : ''}',
+                  style: TextStyle(fontSize: 12, color: muted),
+                ),
+              ),
+              if (dismissedCount > 0)
+                FilterChip(
+                  visualDensity: VisualDensity.compact,
+                  label: const Text('Denegados', style: TextStyle(fontSize: 12)),
+                  selected: _showDismissed,
+                  onSelected: (v) => setState(() => _showDismissed = v),
+                ),
+            ],
           ),
-          if (dismissedCount > 0)
-            FilterChip(
-              visualDensity: VisualDensity.compact,
-              label: const Text('Denegados', style: TextStyle(fontSize: 12)),
-              selected: _showDismissed,
-              onSelected: (v) => setState(() => _showDismissed = v),
-            ),
-        ]),
-      ),
-      Expanded(
-        child: ListView.builder(
-          padding: const EdgeInsets.only(bottom: 16),
-          itemCount: items.length,
-          itemBuilder: (_, i) => items[i](),
         ),
-      ),
-    ]);
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 16),
+            itemCount: items.length,
+            itemBuilder: (_, i) => items[i](),
+          ),
+        ),
+      ],
+    );
   }
 
   void _open(ReviewComment c, String patchId) {
@@ -127,20 +147,28 @@ class _PatchHeader extends StatelessWidget {
     final primary = theme.colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 6, 8),
-      child: Row(children: [
-        PatchBadge(name: name),
-        const SizedBox(width: 8),
-        Text('$active ${active == 1 ? 'activo' : 'activos'}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        if (dismissed > 0)
-          Text('  ·  $dismissed ${dismissed == 1 ? 'denegado' : 'denegados'}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-        const Spacer(),
-        TextButton.icon(
-          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: primary),
-          onPressed: onCopy,
-          icon: const Icon(Icons.copy_all, size: 16),
-          label: const Text('Copiar todos', style: TextStyle(fontSize: 12)),
-        ),
-      ]),
+      child: Row(
+        children: [
+          PatchBadge(name: name),
+          const SizedBox(width: 8),
+          Text(
+            '$active ${active == 1 ? 'activo' : 'activos'}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          if (dismissed > 0)
+            Text(
+              '  ·  $dismissed ${dismissed == 1 ? 'denegado' : 'denegados'}',
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+            ),
+          const Spacer(),
+          TextButton.icon(
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: primary),
+            onPressed: onCopy,
+            icon: const Icon(Icons.copy_all, size: 16),
+            label: const Text('Copiar todos', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -156,9 +184,14 @@ class PatchBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: large ? 10 : 7, vertical: large ? 3 : 1),
       decoration: BoxDecoration(color: primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-      child: Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: primary, fontSize: large ? 14 : 12)),
+      child: Text(
+        name,
+        style: TextStyle(fontWeight: FontWeight.w700, color: primary, fontSize: large ? 14 : 12),
+      ),
     );
   }
 }
 
-List<ReviewLabel> labelsOf(ReviewComment c, ReviewLabel? Function(String) byId) => [for (final id in c.labelIds) ?byId(id)];
+List<ReviewLabel> labelsOf(ReviewComment c, ReviewLabel? Function(String) byId) => [
+  for (final id in c.labelIds) ?byId(id),
+];

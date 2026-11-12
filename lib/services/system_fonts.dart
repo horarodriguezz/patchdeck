@@ -19,6 +19,10 @@ class SystemFonts {
   /// fontconfig aliases (`fc-match sans-serif` / `monospace`). Never throws,
   /// and every external call is time-boxed so startup can't hang.
   static Future<SystemFonts> detect() async {
+    if (Platform.isWindows) {
+      // Windows 10/11 UI font; Cascadia ships with Windows 11 / Terminal, Consolas everywhere.
+      return const SystemFonts(ui: 'Segoe UI', mono: 'Cascadia Mono', source: 'Windows');
+    }
     try {
       final desktop = (Platform.environment['XDG_CURRENT_DESKTOP'] ?? '').toLowerCase();
       String? ui, mono;
@@ -31,10 +35,7 @@ class SystemFonts {
         if (ui != null) source = 'KDE';
       }
       if (ui == null || mono == null) {
-        final g = await Future.wait([
-          _gsettings('font-name'),
-          _gsettings('monospace-font-name'),
-        ]);
+        final g = await Future.wait([_gsettings('font-name'), _gsettings('monospace-font-name')]);
         if (ui == null && g[0] != null) {
           ui = g[0];
           source = source.isEmpty ? 'GNOME' : source;

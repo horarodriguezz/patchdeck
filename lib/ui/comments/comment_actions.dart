@@ -17,12 +17,8 @@ class CommentActions {
 
   Map<String, String> get patchNames => {for (final p in ws.patches) p.id: p.name};
 
-  String format(ReviewComment c, {String? patchId}) => formatComment(
-        c,
-        labelById: AppScope.of(context).settings.labelById,
-        patchNames: patchNames,
-        patchId: patchId,
-      );
+  String format(ReviewComment c, {String? patchId}) =>
+      formatComment(c, labelById: AppScope.of(context).settings.labelById, patchNames: patchNames, patchId: patchId);
 
   void copyOne(ReviewComment c, {String? patchId}) => _copy(format(c, patchId: patchId), 'Comentario copiado');
 
@@ -53,7 +49,10 @@ class CommentActions {
   Future<void> edit(ReviewComment c) async {
     final r = await showDialog<(List<String>, String)>(
       context: context,
-      builder: (_) => CommentEditDialog(comment: c, locations: describeLocations(c.anchors, patchNames: patchNames)),
+      builder: (_) => CommentEditDialog(
+        comment: c,
+        locations: describeLocations(c.anchors, patchNames: patchNames),
+      ),
     );
     if (r != null) ws.updateCommentContent(c.id, r.$1, r.$2);
   }
@@ -64,12 +63,14 @@ class CommentActions {
     afterDelete?.call();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: const Text('Comentario eliminado'),
-        behavior: SnackBarBehavior.floating,
-        width: 360,
-        action: SnackBarAction(label: 'Deshacer', onPressed: () => ws.restoreComment(c, index)),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Comentario eliminado'),
+          behavior: SnackBarBehavior.floating,
+          width: 360,
+          action: SnackBarAction(label: 'Deshacer', onPressed: () => ws.restoreComment(c, index)),
+        ),
+      );
   }
 
   void _copy(String text, String message) {
@@ -80,11 +81,13 @@ class CommentActions {
   void _toast(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        width: 380,
-        duration: const Duration(seconds: 2),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          width: 380,
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 }

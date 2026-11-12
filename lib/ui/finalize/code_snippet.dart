@@ -29,32 +29,45 @@ class CodeSnippet extends StatelessWidget {
     for (final f in files) {
       final ks = byFile[f]!..sort((a, b) => a.$3 != b.$3 ? a.$3.compareTo(b.$3) : a.$4.compareTo(b.$4));
       {
-        children.add(Container(
-          color: t.fileHeaderBg,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          child: Text(model.parsed.files[f].displayPath,
-              style: style.copyWith(fontSize: 11, color: t.hunkFg), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ));
+        children.add(
+          Container(
+            color: t.fileHeaderBg,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: Text(
+              model.parsed.files[f].displayPath,
+              style: style.copyWith(fontSize: 11, color: t.hunkFg),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        );
       }
       LineKey? prev;
       for (final k in ks.take(maxLinesPerFile)) {
         if (prev != null && (prev.$3 != k.$3 || k.$4 - prev.$4 > 1)) {
-          children.add(Container(
-            color: t.hunkBg,
-            padding: const EdgeInsets.only(left: 8),
-            height: 16,
-            alignment: Alignment.centerLeft,
-            child: Text('⋯', style: style.copyWith(color: t.hunkFg, fontSize: 11)),
-          ));
+          children.add(
+            Container(
+              color: t.hunkBg,
+              padding: const EdgeInsets.only(left: 8),
+              height: 16,
+              alignment: Alignment.centerLeft,
+              child: Text('⋯', style: style.copyWith(color: t.hunkFg, fontSize: 11)),
+            ),
+          );
         }
         children.add(_line(model.lineFor(k), style, t));
         prev = k;
       }
       if (ks.length > maxLinesPerFile) {
-        children.add(Padding(
-          padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
-          child: Text('+${ks.length - maxLinesPerFile} líneas más', style: style.copyWith(fontSize: 11, color: t.lineNoFg)),
-        ));
+        children.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+            child: Text(
+              '+${ks.length - maxLinesPerFile} líneas más',
+              style: style.copyWith(fontSize: 11, color: t.lineNoFg),
+            ),
+          ),
+        );
       }
     }
     return ClipRRect(
@@ -80,21 +93,30 @@ class CodeSnippet extends StatelessWidget {
     return Container(
       color: bg,
       height: 19,
-      child: Row(children: [
-        SizedBox(
-          width: 44,
-          child: Text(no == null ? '' : '$no', textAlign: TextAlign.right, style: style.copyWith(color: t.lineNoFg)),
-        ),
-        SizedBox(width: 18, child: Text(' $sign', style: style.copyWith(color: t.lineNoFg))),
-        Expanded(
-          child: RichText(
-            text: buildCodeSpan(l, style.copyWith(color: t.codeFg), t.tokenColors),
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.clip,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 44,
+            child: Text(
+              no == null ? '' : '$no',
+              textAlign: TextAlign.right,
+              style: style.copyWith(color: t.lineNoFg),
+            ),
           ),
-        ),
-      ]),
+          SizedBox(
+            width: 18,
+            child: Text(' $sign', style: style.copyWith(color: t.lineNoFg)),
+          ),
+          Expanded(
+            child: RichText(
+              text: buildCodeSpan(l, style.copyWith(color: t.codeFg), t.tokenColors),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.clip,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

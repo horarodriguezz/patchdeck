@@ -47,8 +47,14 @@ class SettingsController extends ChangeNotifier {
     update(_settings.copyWith(labels: labels));
   }
 
-  void deleteLabel(String id) =>
-      update(_settings.copyWith(labels: [for (final l in _settings.labels) if (l.id != id) l]));
+  void deleteLabel(String id) => update(
+    _settings.copyWith(
+      labels: [
+        for (final l in _settings.labels)
+          if (l.id != id) l,
+      ],
+    ),
+  );
 
   void reorderLabel(int oldIndex, int newIndex) {
     final labels = List.of(_settings.labels);

@@ -36,21 +36,85 @@ class TokenizeResult {
 }
 
 const _jsKeywords = {
-  'abstract', 'any', 'as', 'async', 'await', 'boolean', 'break', 'case', 'catch', 'class', 'const',
-  'constructor', 'continue', 'debugger', 'declare', 'default', 'delete', 'do', 'else', 'enum',
-  'export', 'extends', 'false', 'finally', 'for', 'from', 'function', 'get', 'if', 'implements',
-  'import', 'in', 'infer', 'instanceof', 'interface', 'is', 'keyof', 'let', 'module', 'namespace',
-  'never', 'new', 'null', 'number', 'object', 'of', 'override', 'private', 'protected', 'public',
-  'readonly', 'return', 'satisfies', 'set', 'static', 'string', 'super', 'switch', 'symbol', 'this',
-  'throw', 'true', 'try', 'type', 'typeof', 'undefined', 'unique', 'unknown', 'var', 'void',
-  'while', 'with', 'yield',
+  'abstract',
+  'any',
+  'as',
+  'async',
+  'await',
+  'boolean',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'constructor',
+  'continue',
+  'debugger',
+  'declare',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'from',
+  'function',
+  'get',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'infer',
+  'instanceof',
+  'interface',
+  'is',
+  'keyof',
+  'let',
+  'module',
+  'namespace',
+  'never',
+  'new',
+  'null',
+  'number',
+  'object',
+  'of',
+  'override',
+  'private',
+  'protected',
+  'public',
+  'readonly',
+  'return',
+  'satisfies',
+  'set',
+  'static',
+  'string',
+  'super',
+  'switch',
+  'symbol',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'type',
+  'typeof',
+  'undefined',
+  'unique',
+  'unknown',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
 };
 
 TokenizeResult tokenizeLine(String s, SyntaxLanguage lang, int state) =>
     lang == SyntaxLanguage.js ? _tokenizeJs(s, state) : _tokenizeCss(s, state);
 
-bool _isIdentStart(int c) =>
-    (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95 || c == 36 || c > 127;
+bool _isIdentStart(int c) => (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95 || c == 36 || c > 127;
 bool _isIdent(int c) => _isIdentStart(c) || (c >= 48 && c <= 57);
 bool _isDigit(int c) => c >= 48 && c <= 57;
 
@@ -60,7 +124,12 @@ TokenizeResult _tokenizeJs(String s, int state) {
   var i = 0;
 
   void emit(int a, int b, int k) {
-    if (b > a) out..add(a)..add(b)..add(k);
+    if (b > a) {
+      out
+        ..add(a)
+        ..add(b)
+        ..add(k);
+    }
   }
 
   if (state == 1) {
@@ -159,7 +228,12 @@ TokenizeResult _tokenizeCss(String s, int state) {
   var i = 0;
 
   void emit(int a, int b, int k) {
-    if (b > a) out..add(a)..add(b)..add(k);
+    if (b > a) {
+      out
+        ..add(a)
+        ..add(b)
+        ..add(k);
+    }
   }
 
   if (state == 1) {

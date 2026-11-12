@@ -22,7 +22,12 @@ class ReviewsController extends ChangeNotifier {
 
   Future<Review> create(String title) async {
     final now = DateTime.now();
-    final r = Review(id: newId(), title: title.trim().isEmpty ? 'Review sin título' : title.trim(), createdAt: now, updatedAt: now);
+    final r = Review(
+      id: newId(),
+      title: title.trim().isEmpty ? 'Review sin título' : title.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
     await repo.save(r);
     await refresh();
     return r;

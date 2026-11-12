@@ -7,7 +7,13 @@ import '../../state/workspace_controller.dart';
 /// Tabs for the review's patches. Click shows a single patch; Ctrl+click
 /// toggles it into the side-by-side view.
 class PatchTabBar extends StatelessWidget {
-  const PatchTabBar({super.key, required this.workspace, required this.onAdd, required this.onRename, required this.onDelete});
+  const PatchTabBar({
+    super.key,
+    required this.workspace,
+    required this.onAdd,
+    required this.onRename,
+    required this.onDelete,
+  });
 
   final WorkspaceController workspace;
   final VoidCallback onAdd;
@@ -24,36 +30,41 @@ class PatchTabBar extends StatelessWidget {
         color: theme.colorScheme.surface,
         border: Border(bottom: BorderSide(color: theme.dividerColor)),
       ),
-      child: Row(children: [
-        Expanded(
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            itemCount: patches.length,
-            itemBuilder: (context, i) => _PatchTab(
-              entry: patches[i],
-              visible: workspace.visiblePatchIds.contains(patches[i].id),
-              fileCount: workspace.model(patches[i].id)?.parsed.files.length,
-              onTap: () => workspace.showPatch(
-                patches[i].id,
-                additive: HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed,
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              itemCount: patches.length,
+              itemBuilder: (context, i) => _PatchTab(
+                entry: patches[i],
+                visible: workspace.visiblePatchIds.contains(patches[i].id),
+                fileCount: workspace.model(patches[i].id)?.parsed.files.length,
+                onTap: () => workspace.showPatch(
+                  patches[i].id,
+                  additive: HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed,
+                ),
+                onToggleSideBySide: () => workspace.showPatch(patches[i].id, additive: true),
+                onRename: () => onRename(patches[i]),
+                onDelete: () => onDelete(patches[i]),
               ),
-              onToggleSideBySide: () => workspace.showPatch(patches[i].id, additive: true),
-              onRename: () => onRename(patches[i]),
-              onDelete: () => onDelete(patches[i]),
             ),
           ),
-        ),
-        if (patches.length > 1)
+          if (patches.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                'Ctrl+clic: lado a lado',
+                style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Text('Ctrl+clic: lado a lado', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+            child: TextButton.icon(onPressed: onAdd, icon: const Icon(Icons.add, size: 16), label: const Text('Patch')),
           ),
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: TextButton.icon(onPressed: onAdd, icon: const Icon(Icons.add, size: 16), label: const Text('Patch')),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -108,23 +119,34 @@ class _PatchTab extends StatelessWidget {
             border: Border(bottom: BorderSide(color: visible ? primary : Colors.transparent, width: 2)),
           ),
           alignment: Alignment.center,
-          child: Row(children: [
-            Text(entry.name, style: TextStyle(fontWeight: visible ? FontWeight.w700 : FontWeight.w500, color: visible ? null : theme.colorScheme.onSurfaceVariant)),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(999)),
-              child: fileCount == null
-                  ? const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5))
-                  : Text('$fileCount', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-            ),
-            const SizedBox(width: 2),
-            InkWell(
-              borderRadius: BorderRadius.circular(4),
-              onTapDown: (d) => _menu(context, d.globalPosition),
-              child: Icon(Icons.arrow_drop_down, size: 18, color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ]),
+          child: Row(
+            children: [
+              Text(
+                entry.name,
+                style: TextStyle(
+                  fontWeight: visible ? FontWeight.w700 : FontWeight.w500,
+                  color: visible ? null : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: fileCount == null
+                    ? const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5))
+                    : Text('$fileCount', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+              ),
+              const SizedBox(width: 2),
+              InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTapDown: (d) => _menu(context, d.globalPosition),
+                child: Icon(Icons.arrow_drop_down, size: 18, color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
         ),
       ),
     );
