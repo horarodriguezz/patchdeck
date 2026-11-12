@@ -9,7 +9,11 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 
 - **Reviews**: la pantalla inicial lista tus reviews (crear, renombrar, eliminar).
 - **Workspace** por review:
-  - Columna izquierda **Contexto** (colapsable y redimensionable): Markdown libre, p. ej. la descripción del PR.
+  - Columna izquierda (colapsable, redimensionable y animada) con dos pestañas:
+    - **Contexto**: Markdown libre, p. ej. la descripción del PR.
+    - **Comentarios**: los comentarios de los patches visibles, agrupados por patch y ordenados por posición.
+      Clic en uno → el diff salta a esas líneas y lo abre en edición. Cada comentario tiene *copiar*, y cada
+      patch un *Copiar todos*.
   - Columna derecha **Notas** (colapsable y redimensionable): anotaciones libres en Markdown con vista previa.
   - **Varios patches por review**, cada uno en su pestaña, nombrados `A`, `B`, `C`, … `Z`, `AA`… (renombrables).
   - **Varios patches lado a lado**: `Ctrl+clic` en una pestaña (o menú ▾ → *Ver lado a lado*). Con dos patches
@@ -26,13 +30,22 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 - **Comentarios**: al seleccionar aparece el editor; primero el input de **etiquetas** (escribe para filtrar,
   `Enter` agrega, `Backspace` quita), luego el texto. `Ctrl+Enter` guarda, `Esc` cancela. Un comentario aplica a
   todas las líneas seleccionadas de todos los archivos. Clic en un comentario para editarlo.
-- **Exportar**: botón de compartir → copia la review (contexto, comentarios con ubicaciones, notas) como Markdown.
+- **Copiar**: un comentario se copia como `[etiquetas] archivo L3-L5 · otro.css L11: texto`; "copiar todos" los
+  une con una línea en blanco. Los comentarios **denegados** nunca se copian.
+- **Denegar**: marca un comentario como descartado sin borrarlo; se muestra apagado y tachado en todos lados.
+- **Finalizar review**: resumen con estadísticas, filtro por etiqueta, todos los comentarios por patch con un
+  extracto del código al que apuntan, y acciones de editar / denegar / eliminar / copiar. Las notas y el contexto
+  quedan a la derecha, editables. Desde ahí se copian todos los comentarios o la review completa en Markdown.
+- **Fuente del sistema**: la UI y el código usan las fuentes del escritorio (GNOME `gsettings`, KDE
+  `kdeglobals`, o los alias `sans-serif` / `monospace` de fontconfig).
 - **Configuración**: temas (Oscuro, Claro, Medianoche, Arena, Bosque), tamaño de fuente del código, vista por
   defecto, resaltado on/off, y **etiquetas** (título, descripción, color; reordenables).
 
 | Patches lado a lado | Editor de comentario |
 |---|---|
 | ![](docs/screenshots/side-by-side.png) | ![](docs/screenshots/composer.png) |
+| **Pestaña de comentarios** | **Finalizar review** |
+| ![](docs/screenshots/comments-tab.png) | ![](docs/screenshots/finalize.png) |
 
 ## Compilar desde el código fuente
 
@@ -97,7 +110,7 @@ lib/
   services/    rutas XDG, JSON atómico, repositorios de settings y reviews
   state/       controllers (settings, reviews, workspace, selección), PatchModel, export Markdown
   theme/       temas y DiffTheme (ThemeExtension con colores de diff y sintaxis)
-  ui/          home/, settings/, workspace/, diff/, common/
+  ui/          home/, settings/, workspace/, diff/, comments/, finalize/, common/
 ```
 
 - **Parseo y tokenizado fuera del hilo de UI** (`Isolate.run`) para patches grandes; se hace una sola vez.

@@ -36,6 +36,12 @@ class WorkspaceController extends ChangeNotifier {
   bool leftOpen = false;
   bool rightOpen = true;
 
+  /// 0 = context, 1 = comments.
+  int leftTab = 0;
+
+  /// A line a pane should scroll to on its next build (see [reveal]).
+  LineKey? _pendingReveal;
+
   // ---------------------------------------------------------------- patches
 
   List<PatchEntry> get patches => review.patches;
@@ -257,6 +263,75 @@ class WorkspaceController extends ChangeNotifier {
     _changed();
   }
 
+  void setDismissed(String id, bool dismissed) {
+    final i = review.comments.indexWhere((c) => c.id == id);
+    if (i < 0) return;
+    review.comments[i] = review.comments[i].copyWith(dismissed: dismissed);
+    _commentsVersion++;
+    _changed();
+  }
+
+  /// Edits labels / text without touching the anchors (used outside the diff).
+  void updateCommentContent(String id, List<String> labelIds, String text) {
+    final i = review.comments.indexWhere((c) => c.id == id);
+    if (i < 0) return;
+    review.comments[i] = review.comments[i].copyWith(labelIds: labelIds, text: text);
+    _commentsVersion++;
+    _changed();
+  }
+
+  /// Comments touching [patchId], ordered by where they first appear in it.
+  List<ReviewComment> commentsInPatch(String patchId, {bool includeDismissed = true}) {
+    final m = _models[patchId];
+    final withPos = <(ReviewComment, int)>[];
+    for (final c in review.comments) {
+      if (!includeDismissed && c.dismissed) continue;
+      var best = -1;
+      for (final a in c.anchors) {
+        if (a.patchId != patchId) continue;
+        final k = m?.keyFor(a);
+        final pos = k == null ? 1 << 50 : (k.$2 << 40) | (k.$3 << 20) | k.$4;
+        if (best < 0 || pos < best) best = pos;
+      }
+      if (best >= 0) withPos.add((c, best));
+    }
+    withPos.sort((a, b) => a.$2.compareTo(b.$2));
+    return [for (final e in withPos) e.$1];
+  }
+
+  /// First line of [c] inside [patchId] (or anywhere if null).
+  LineKey? firstKeyOf(ReviewComment c, [String? patchId]) {
+    LineKey? best;
+    for (final k in keysFor(c)) {
+      if (patchId != null && k.$1 != patchId) continue;
+      if (best == null ||
+          (k.$1 == best.$1 && (k.$2 < best.$2 || (k.$2 == best.$2 && (k.$3 < best.$3 || (k.$3 == best.$3 && k.$4 < best.$4)))))) {
+        best = k;
+      }
+    }
+    return best;
+  }
+
+  /// Makes the line's patch visible, expands its file and asks the pane to
+  /// scroll there.
+  void reveal(LineKey k) {
+    if (!_visible.contains(k.$1)) {
+      _visible
+        ..clear()
+        ..add(k.$1);
+    }
+    if (_collapsed[k.$1]?.remove(k.$2) ?? false) _layoutCache.remove(k.$1);
+    _pendingReveal = k;
+    notifyListeners();
+  }
+
+  LineKey? takeReveal(String patchId) {
+    final k = _pendingReveal;
+    if (k == null || k.$1 != patchId) return null;
+    _pendingReveal = null;
+    return k;
+  }
+
   void deleteComment(String id) {
     review.comments.removeWhere((c) => c.id == id);
     _commentsVersion++;
@@ -277,6 +352,17 @@ class WorkspaceController extends ChangeNotifier {
 
   void toggleLeft() {
     leftOpen = !leftOpen;
+    notifyListeners();
+  }
+
+  void openLeftTab(int tab) {
+    leftTab = tab;
+    leftOpen = true;
+    notifyListeners();
+  }
+
+  void setLeftTab(int tab) {
+    leftTab = tab;
     notifyListeners();
   }
 

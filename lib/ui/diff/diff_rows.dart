@@ -5,6 +5,7 @@ import '../../diff/diff_models.dart';
 import '../../models/label.dart';
 import '../../models/review.dart';
 import '../../theme/diff_theme.dart';
+import '../comments/comment_card.dart';
 import '../common/label_chip.dart';
 
 class FileHeaderRow extends StatelessWidget {
@@ -147,6 +148,8 @@ class CommentRow extends StatelessWidget {
     required this.summary,
     required this.onEdit,
     required this.onDelete,
+    required this.onCopy,
+    required this.onToggleDismissed,
     required this.indent,
   });
 
@@ -155,18 +158,24 @@ class CommentRow extends StatelessWidget {
   final String summary;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onCopy;
+  final VoidCallback onToggleDismissed;
   final double indent;
 
   @override
   Widget build(BuildContext context) {
     final t = context.diffTheme;
     final theme = Theme.of(context);
-    final accent = labels.isEmpty ? theme.colorScheme.primary : labels.first.colorValue;
+    final dismissed = comment.dismissed;
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final accent = dismissed ? t.border : (labels.isEmpty ? theme.colorScheme.primary : labels.first.colorValue);
     return ColoredBox(
       color: t.codeBg,
       child: Padding(
         padding: EdgeInsets.fromLTRB(indent, 6, 12, 6),
-        child: Material(
+        child: Opacity(
+          opacity: dismissed ? 0.55 : 1,
+          child: Material(
           color: theme.colorScheme.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: t.border)),
           clipBehavior: Clip.antiAlias,
@@ -187,8 +196,9 @@ class CommentRow extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             maxWidth: double.infinity,
                             child: Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [
+                            if (dismissed) const DismissedBadge(),
                             for (final l in labels) LabelChip(label: l, dense: true),
-                            if (labels.isEmpty)
+                            if (labels.isEmpty && !dismissed)
                               Text('sin etiquetas', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
                           ]),
                           ),
@@ -197,6 +207,12 @@ class CommentRow extends StatelessWidget {
                       ),
                       Text(summary, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
                       const SizedBox(width: 6),
+                      _MiniIcon(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: onCopy),
+                      _MiniIcon(
+                        icon: dismissed ? Icons.restore : Icons.block,
+                        tip: dismissed ? 'Restaurar' : 'Denegar',
+                        onTap: onToggleDismissed,
+                      ),
                       _MiniIcon(icon: Icons.edit_outlined, tip: 'Editar', onTap: onEdit),
                       _MiniIcon(icon: Icons.delete_outline, tip: 'Eliminar', onTap: onDelete),
                     ]),
@@ -206,7 +222,13 @@ class CommentRow extends StatelessWidget {
                         comment.text.isEmpty ? '(sin texto)' : comment.text,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, height: 1.35),
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          color: dismissed ? muted : null,
+                          decoration: dismissed ? TextDecoration.lineThrough : null,
+                          decorationColor: muted,
+                        ),
                       ),
                     ),
                   ]),
@@ -214,6 +236,7 @@ class CommentRow extends StatelessWidget {
               ),
             ]),
           ),
+        ),
         ),
       ),
     );

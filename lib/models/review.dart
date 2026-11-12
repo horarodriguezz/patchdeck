@@ -41,6 +41,7 @@ class ReviewComment {
     required this.text,
     required this.createdAt,
     required this.updatedAt,
+    this.dismissed = false,
   });
 
   final String id;
@@ -50,7 +51,11 @@ class ReviewComment {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  ReviewComment copyWith({List<LineAnchor>? anchors, List<String>? labelIds, String? text}) =>
+  /// "Denegado": kept for the record but muted everywhere and never copied
+  /// by the bulk copy actions.
+  final bool dismissed;
+
+  ReviewComment copyWith({List<LineAnchor>? anchors, List<String>? labelIds, String? text, bool? dismissed}) =>
       ReviewComment(
         id: id,
         anchors: anchors ?? this.anchors,
@@ -58,6 +63,7 @@ class ReviewComment {
         text: text ?? this.text,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
+        dismissed: dismissed ?? this.dismissed,
       );
 
   Map<String, dynamic> toJson() => {
@@ -67,6 +73,7 @@ class ReviewComment {
         'text': text,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        if (dismissed) 'dismissed': true,
       };
 
   factory ReviewComment.fromJson(Map<String, dynamic> j) => ReviewComment(
@@ -78,6 +85,7 @@ class ReviewComment {
         text: j['text'] as String? ?? '',
         createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
         updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
+        dismissed: j['dismissed'] as bool? ?? false,
       );
 }
 

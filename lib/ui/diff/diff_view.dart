@@ -9,6 +9,7 @@ import '../../diff/diff_layout.dart';
 import '../../models/app_settings.dart';
 import '../../models/label.dart';
 import '../../models/review.dart';
+import 'comment_callbacks.dart';
 import '../../state/patch_model.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
@@ -34,8 +35,7 @@ class DiffView extends StatefulWidget {
     required this.metrics,
     required this.controller,
     required this.horizontalScroll,
-    required this.onEditComment,
-    required this.onDeleteComment,
+    required this.callbacks,
   });
 
   final WorkspaceController workspace;
@@ -46,8 +46,7 @@ class DiffView extends StatefulWidget {
   final DiffMetrics metrics;
   final ScrollController controller;
   final bool horizontalScroll;
-  final void Function(ReviewComment) onEditComment;
-  final void Function(ReviewComment) onDeleteComment;
+  final CommentCallbacks callbacks;
 
   @override
   State<DiffView> createState() => _DiffViewState();
@@ -202,8 +201,10 @@ class _DiffViewState extends State<DiffView> {
             labels: labels,
             summary: _commentSummary(c),
             indent: codeIndent,
-            onEdit: () => widget.onEditComment(c),
-            onDelete: () => widget.onDeleteComment(c),
+            onEdit: () => widget.callbacks.edit(c),
+            onDelete: () => widget.callbacks.delete(c),
+            onCopy: () => widget.callbacks.copy(c, widget.model.id),
+            onToggleDismissed: () => widget.callbacks.toggleDismissed(c),
           );
         case RowKind.line:
           final hunk = widget.model.parsed.files[row.file].hunks[row.hunk];

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/app_settings.dart';
-import '../../models/review.dart';
+import 'comment_callbacks.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
 import 'diff_pane.dart';
@@ -15,15 +15,13 @@ class PanesView extends StatefulWidget {
     required this.workspace,
     required this.selection,
     required this.mode,
-    required this.onEditComment,
-    required this.onDeleteComment,
+    required this.callbacks,
   });
 
   final WorkspaceController workspace;
   final SelectionController selection;
   final DiffMode mode;
-  final void Function(ReviewComment) onEditComment;
-  final void Function(ReviewComment) onDeleteComment;
+  final CommentCallbacks callbacks;
 
   @override
   State<PanesView> createState() => _PanesViewState();
@@ -46,8 +44,7 @@ class _PanesViewState extends State<PanesView> {
         showName: multi,
         // Inner horizontal scrolling would steal shift+wheel from the pane strip.
         horizontalScroll: !multi && widget.mode == DiffMode.unified,
-        onEditComment: widget.onEditComment,
-        onDeleteComment: widget.onDeleteComment,
+        callbacks: widget.callbacks,
       );
 
   @override

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_scope.dart';
 import '../../diff/diff_layout.dart';
-import '../../models/review.dart';
+import 'comment_callbacks.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
 import 'diff_view.dart';
@@ -16,8 +16,7 @@ class DiffPane extends StatefulWidget {
     required this.selection,
     required this.showName,
     required this.horizontalScroll,
-    required this.onEditComment,
-    required this.onDeleteComment,
+    required this.callbacks,
   });
 
   final String patchId;
@@ -25,8 +24,7 @@ class DiffPane extends StatefulWidget {
   final SelectionController selection;
   final bool showName;
   final bool horizontalScroll;
-  final void Function(ReviewComment) onEditComment;
-  final void Function(ReviewComment) onDeleteComment;
+  final CommentCallbacks callbacks;
 
   @override
   State<DiffPane> createState() => _DiffPaneState();
@@ -34,6 +32,17 @@ class DiffPane extends StatefulWidget {
 
 class _DiffPaneState extends State<DiffPane> {
   final ScrollController _scroll = ScrollController();
+
+  /// Scrolls so [key] sits about a third from the top of the viewport.
+  void _scrollTo(DiffLayout layout, LineKey key) {
+    if (!mounted || !_scroll.hasClients) return;
+    final row = layout.rows.indexWhere((r) =>
+        r.kind == RowKind.line && r.file == key.$2 && r.hunk == key.$3 && (r.a == key.$4 || r.b == key.$4));
+    if (row < 0) return;
+    final pos = _scroll.position;
+    final target = (layout.offsets[row] - pos.viewportDimension / 3).clamp(0.0, pos.maxScrollExtent);
+    _scroll.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+  }
 
   @override
   void dispose() {
@@ -55,6 +64,8 @@ class _DiffPaneState extends State<DiffPane> {
     final layout = ws.layout(widget.patchId, settings.diffMode, metrics)!;
     final parsed = model.parsed;
     final muted = theme.colorScheme.onSurfaceVariant;
+    final reveal = ws.takeReveal(widget.patchId);
+    if (reveal != null) WidgetsBinding.instance.addPostFrameCallback((_) => _scrollTo(layout, reveal));
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
@@ -130,8 +141,7 @@ class _DiffPaneState extends State<DiffPane> {
                 metrics: metrics,
                 controller: _scroll,
                 horizontalScroll: widget.horizontalScroll,
-                onEditComment: widget.onEditComment,
-                onDeleteComment: widget.onDeleteComment,
+                callbacks: widget.callbacks,
               ),
       ),
     ]);

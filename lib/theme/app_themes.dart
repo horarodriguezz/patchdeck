@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/system_fonts.dart';
 import 'diff_theme.dart';
 
 class AppThemeSpec {
@@ -24,8 +25,13 @@ class AppThemeSpec {
   final DiffTheme diff;
 }
 
-const List<String> monoFallback = ['DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono', 'Ubuntu Mono'];
-const String monoFamily = 'monospace';
+/// Code font: the desktop's monospace font, falling back to fontconfig's alias.
+String get monoFamily => SystemFonts.current.mono ?? 'monospace';
+const List<String> monoFallback = ['monospace', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono'];
+
+/// UI font: the desktop's interface font (null keeps Flutter's default).
+String? get uiFamily => SystemFonts.current.ui;
+const List<String> uiFallback = ['sans-serif', 'Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans'];
 
 final List<AppThemeSpec> appThemes = [
   const AppThemeSpec(
@@ -221,7 +227,13 @@ ThemeData buildThemeData(AppThemeSpec s) {
     outline: s.border,
     outlineVariant: s.border,
   );
-  final base = ThemeData(colorScheme: scheme, brightness: s.brightness, useMaterial3: true);
+  final base = ThemeData(
+    colorScheme: scheme,
+    brightness: s.brightness,
+    useMaterial3: true,
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+  );
   return base.copyWith(
     scaffoldBackgroundColor: s.background,
     dividerColor: s.border,

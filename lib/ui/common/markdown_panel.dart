@@ -69,7 +69,7 @@ class _MarkdownPanelState extends State<MarkdownPanel> {
                     maxLines: null,
                     expands: true,
                     textAlignVertical: TextAlignVertical.top,
-                    style: const TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 13, height: 1.45),
+                    style: TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 13, height: 1.45),
                     decoration: InputDecoration(hintText: widget.hint, contentPadding: const EdgeInsets.all(10)),
                   ),
                 ),

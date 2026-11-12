@@ -6,6 +6,7 @@ import 'package:patchdeck/diff/diff_parser.dart';
 import 'package:patchdeck/models/app_settings.dart';
 import 'package:patchdeck/models/review.dart';
 import 'package:patchdeck/state/patch_model.dart';
+import 'package:patchdeck/state/comment_format.dart';
 import 'package:patchdeck/state/review_export.dart';
 import 'package:patchdeck/state/selection_controller.dart';
 
@@ -95,11 +96,40 @@ void main() {
     expect(nextPatchName(['A', 'C']), 'B');
   });
 
-  test('markdown export groups line ranges', () {
-    final anchors = [
-      for (final n in [3, 4, 5, 9]) LineAnchor(patchId: 'p1', path: 'src/a.ts', newLine: n),
-      const LineAnchor(patchId: 'p1', path: 'src/a.ts', oldLine: 2),
-    ];
-    expect(describeAnchors(anchors, {'p1': 'A'}).single, 'A: `src/a.ts` L3-L5, L9; L-2');
+  test('comment copy format: tags + files + lines: text', () {
+    final c = ReviewComment(
+      id: 'c',
+      anchors: [
+        for (final n in [3, 4, 5, 9]) LineAnchor(patchId: 'p1', path: 'src/a.ts', newLine: n),
+        const LineAnchor(patchId: 'p1', path: 'src/a.ts', oldLine: 2),
+        const LineAnchor(patchId: 'p1', path: 'b.css', newLine: 7),
+        const LineAnchor(patchId: 'p2', path: 'c.ts', newLine: 1),
+      ],
+      labelIds: ['bug', 'nit', 'missing'],
+      text: ' Arreglar esto ',
+      createdAt: DateTime(2024),
+      updatedAt: DateTime(2024),
+    );
+    final labels = {for (final l in AppSettings.defaults().labels) l.id: l};
+    final names = {'p1': 'A', 'p2': 'B'};
+    expect(
+      formatComment(c, labelById: (id) => labels[id], patchNames: names, patchId: 'p1'),
+      '[bug, nit] src/a.ts L3-L5, L9, L2 (eliminada) · b.css L7: Arreglar esto',
+    );
+    expect(
+      formatComment(c, labelById: (id) => labels[id], patchNames: names),
+      '[bug, nit] A: src/a.ts L3-L5, L9, L2 (eliminada) · b.css L7 | B: c.ts L1: Arreglar esto',
+    );
+    final dismissed = c.copyWith(dismissed: true);
+    final other = c.copyWith(text: 'otro', labelIds: []);
+    expect(
+      formatComments([c, dismissed, other], labelById: (id) => labels[id], patchNames: names, patchId: 'p2'),
+      '[bug, nit] c.ts L1: Arreglar esto\n\nc.ts L1: otro',
+    );
+    final review = Review(id: 'r', title: 'R', createdAt: DateTime(2024), updatedAt: DateTime(2024),
+        patches: [PatchEntry(id: 'p2', name: 'B', raw: '', createdAt: DateTime(2024))], comments: [c, dismissed]);
+    expect(commentsForPatch(review, 'p2').length, 1);
+    expect(exportAllCommentsText(review, (id) => labels[id]), startsWith('Patch B\n\n[bug, nit] c.ts L1'));
+    expect(ReviewComment.fromJson(dismissed.toJson()).dismissed, isTrue);
   });
 }

@@ -109,7 +109,7 @@ class _AddPatchDialogState extends State<AddPatchDialog> {
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 12.5),
+              style: TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 12.5),
               decoration: InputDecoration(
                 hintText: 'Pega aquí la salida de git diff, git show o git format-patch…',
                 errorText: _error,

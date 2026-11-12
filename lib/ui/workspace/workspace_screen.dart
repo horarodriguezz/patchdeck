@@ -7,11 +7,16 @@ import '../../models/review.dart';
 import '../../state/review_export.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
+import '../comments/comment_actions.dart';
 import '../common/dialogs.dart';
 import '../common/markdown_panel.dart';
+import '../diff/comment_callbacks.dart';
 import '../diff/comment_composer.dart';
 import '../diff/panes_view.dart';
+import '../finalize/finalize_screen.dart';
+
 import 'add_patch_dialog.dart';
+import 'left_panel.dart';
 import 'patch_tab_bar.dart';
 import 'side_panel.dart';
 
@@ -96,19 +101,31 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
 
   void _editComment(ReviewComment c) => _selection.setSelection(_ws!.keysFor(c), editing: c.id);
 
-  void _deleteComment(ReviewComment c) {
-    final ws = _ws!;
-    final index = ws.comments.indexOf(c);
-    ws.deleteComment(c.id);
-    if (_selection.editingCommentId == c.id) _selection.clear();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: const Text('Comentario eliminado'),
-        behavior: SnackBarBehavior.floating,
-        width: 360,
-        action: SnackBarAction(label: 'Deshacer', onPressed: () => ws.restoreComment(c, index)),
-      ));
+  CommentCallbacks _callbacks() {
+    final actions = CommentActions(context, _ws!);
+    return CommentCallbacks(
+      edit: _editComment,
+      delete: (c) => actions.delete(c, afterDelete: () {
+        if (_selection.editingCommentId == c.id) _selection.clear();
+      }),
+      copy: (c, patchId) => actions.copyOne(c, patchId: patchId),
+      toggleDismissed: actions.toggleDismissed,
+    );
+  }
+
+  void _openFinalize() {
+    _selection.clear();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FinalizeScreen(
+        workspace: _ws!,
+        onOpenInDiff: (c, patchId) {
+          final ws = _ws!;
+          final k = ws.firstKeyOf(c, patchId) ?? ws.firstKeyOf(c);
+          if (k != null) ws.reveal(k);
+          _selection.setSelection(ws.keysFor(c), editing: c.id);
+        },
+      ),
+    ));
   }
 
   Future<void> _renameReview() async {
@@ -182,25 +199,20 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     onPressed: ws.toggleRight,
                   ),
                   const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _openFinalize,
+                    icon: const Icon(Icons.task_alt, size: 18),
+                    label: const Text('Finalizar review'),
+                  ),
+                  const SizedBox(width: 12),
                 ],
               ),
               body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                SidePanel(
-                  title: 'Contexto',
-                  icon: Icons.description_outlined,
-                  side: AxisDirection.left,
-                  open: ws.leftOpen,
-                  onToggle: ws.toggleLeft,
-                  child: MarkdownPanel(
-                    initialText: ws.review.contextMarkdown,
-                    onChanged: ws.setContext,
-                    hint: 'Pega aquí la descripción del PR, el ticket, requisitos… (Markdown)',
-                  ),
-                ),
+                LeftPanel(workspace: ws, selection: _selection),
                 Expanded(child: _center(ws, mode)),
                 SidePanel(
-                  title: 'Notas',
-                  icon: Icons.sticky_note_2_outlined,
+                  header: const PanelTitle(icon: Icons.sticky_note_2_outlined, title: 'Notas'),
+                  rail: SimpleRail(icon: Icons.sticky_note_2_outlined, title: 'Notas', onTap: ws.toggleRight, isLeft: false),
                   side: AxisDirection.right,
                   open: ws.rightOpen,
                   onToggle: ws.toggleRight,
@@ -231,8 +243,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     workspace: ws,
                     selection: _selection,
                     mode: mode,
-                    onEditComment: _editComment,
-                    onDeleteComment: _deleteComment,
+                    callbacks: _callbacks(),
                   ),
                 ),
                 ListenableBuilder(
