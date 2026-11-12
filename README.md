@@ -57,12 +57,13 @@ descarga Flutter si no lo tienes (en `~/.local/share/patchdeck-sdk`, sólo para 
 instala la app con su **ícono** y su **lanzador `.desktop`**, así aparece en el menú de aplicaciones.
 
 ```bash
-git clone https://github.com/horarodriguezz/patchdeck && cd patchdeck
+curl -fsSL https://raw.githubusercontent.com/horarodriguezz/patchdeck/main/scripts/install.sh | bash
 ```
 
-```bash
-./scripts/install.sh
-```
+Volver a ejecutar el mismo comando **actualiza** la app (el código se guarda en
+`~/.local/share/patchdeck-sdk/src`). Para pasar opciones: `curl … | bash -s -- --system`.
+
+Desde un clon del repo también vale `./scripts/install.sh`.
 
 Opciones:
 
@@ -73,7 +74,6 @@ Opciones:
 | `./scripts/install.sh --skip-deps` | No toca paquetes del sistema (ya los tienes) |
 | `./scripts/install.sh --uninstall` | Desinstala (tus reviews y configuración se conservan) |
 
-Para actualizar: `git pull` y volver a ejecutar `./scripts/install.sh --skip-deps`.
 
 ### Compilar a mano
 

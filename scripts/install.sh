@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # Patchdeck installer for Fedora / Ubuntu / Debian (and derivatives).
 #
+#   curl -fsSL https://raw.githubusercontent.com/horarodriguezz/patchdeck/main/scripts/install.sh | bash
 #   ./scripts/install.sh              # per-user install into ~/.local (no root for the app itself)
 #   ./scripts/install.sh --system     # system-wide into /usr/local (uses sudo)
 #   ./scripts/install.sh --uninstall  # remove (add --system if installed system-wide)
+#
+# Options go after `bash -s --` when piping:  curl ... | bash -s -- --system
 #
 # Steps: installs build dependencies (dnf/apt, asks for sudo), installs Flutter
 # locally if it is not on PATH, builds a release bundle and installs the
 # binary, a launcher (.desktop) and the icon.
 set -euo pipefail
+
+# Everything runs inside main(), called on the last line: when piped from
+# curl, bash has read the whole script before any command can touch stdin.
+main() {
 
 APP_ID="dev.patchdeck.patchdeck"
 PREFIX="${HOME}/.local"
@@ -18,8 +25,18 @@ SKIP_DEPS=0
 UNINSTALL=0
 FLUTTER_HOME="${PATCHDECK_FLUTTER_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/patchdeck-sdk/flutter}"
 REPO_URL="https://github.com/horarodriguezz/patchdeck.git"
+SRC_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/patchdeck-sdk/src"
 
-usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() {
+  cat <<'USAGE'
+Uso: install.sh [--system] [--prefix DIR] [--skip-deps] [--uninstall]
+  (sin opciones)  instala para tu usuario en ~/.local
+  --system        instala para todo el sistema en /usr/local (sudo)
+  --prefix DIR    instala en DIR
+  --skip-deps     no instala paquetes del sistema
+  --uninstall     desinstala (conserva reviews y configuración)
+USAGE
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,13 +74,16 @@ if [[ $UNINSTALL -eq 1 ]]; then
 fi
 
 # --- 0. Source tree -----------------------------------------------------------
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)"
-if [[ -z "$SRC" || ! -f "$SRC/pubspec.yaml" ]]; then
-  SRC="$(mktemp -d)/patchdeck"
-  say "Clonando $REPO_URL"
-  git clone --depth 1 "$REPO_URL" "$SRC"
+# Run from a checkout: build that checkout. Piped from curl: keep a clone in
+# $SRC_HOME and update it, so re-running the one-liner upgrades the app.
+SRC=""
+SCRIPT_PATH="${BASH_SOURCE[0]:-}"
+if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
+  SRC="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+  [[ -f "$SRC/pubspec.yaml" ]] || SRC=""
 fi
-cd "$SRC"
+NEED_GIT=0
+[[ -z "$SRC" ]] && NEED_GIT=1
 
 # --- 1. System dependencies ---------------------------------------------------
 if [[ $SKIP_DEPS -eq 0 ]]; then
@@ -79,6 +99,21 @@ if [[ $SKIP_DEPS -eq 0 ]]; then
     exit 1
   fi
 fi
+
+if [[ $NEED_GIT -eq 1 ]]; then
+  command -v git >/dev/null || { warn "Hace falta git (o ejecuta sin --skip-deps)."; exit 1; }
+  SRC="$SRC_HOME"
+  if [[ -d "$SRC/.git" ]]; then
+    say "Actualizando el código en $SRC"
+    git -C "$SRC" fetch --depth 1 origin main
+    git -C "$SRC" reset --hard -q origin/main
+  else
+    say "Descargando el código en $SRC"
+    mkdir -p "$(dirname "$SRC")"
+    git clone --depth 1 "$REPO_URL" "$SRC"
+  fi
+fi
+cd "$SRC"
 
 # --- 2. Flutter ---------------------------------------------------------------
 if command -v flutter >/dev/null 2>&1; then
@@ -125,3 +160,6 @@ case ":$PATH:" in
   *":$BIN_DIR:"*) say "También puedes ejecutar: patchdeck" ;;
   *) warn "$BIN_DIR no está en tu PATH; agrégalo para lanzar 'patchdeck' desde la terminal." ;;
 esac
+}
+
+main "$@"
