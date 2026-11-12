@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,6 +17,7 @@ import '../../state/workspace_controller.dart';
 import '../../theme/app_themes.dart';
 import '../../theme/diff_theme.dart';
 import 'diff_rows.dart';
+import 'h_scrollbar.dart';
 import 'line_cell.dart';
 
 /// Virtualized diff renderer.
@@ -34,7 +36,6 @@ class DiffView extends StatefulWidget {
     required this.mode,
     required this.metrics,
     required this.controller,
-    required this.horizontalScroll,
     required this.callbacks,
   });
 
@@ -45,7 +46,6 @@ class DiffView extends StatefulWidget {
   final DiffMode mode;
   final DiffMetrics metrics;
   final ScrollController controller;
-  final bool horizontalScroll;
   final CommentCallbacks callbacks;
 
   @override
@@ -53,7 +53,10 @@ class DiffView extends StatefulWidget {
 }
 
 class _DiffViewState extends State<DiffView> {
-  final ScrollController _h = ScrollController();
+  /// Horizontal offset of the code columns (not a Scrollable: both split
+  /// sides read the same value, so they always scroll together).
+  final ValueNotifier<double> _hx = ValueNotifier(0);
+  double _maxHx = 0;
   Timer? _autoScroll;
   double _autoDir = 0;
   Offset? _lastPointer;
@@ -65,8 +68,31 @@ class _DiffViewState extends State<DiffView> {
   @override
   void dispose() {
     _autoScroll?.cancel();
-    _h.dispose();
+    _hx.dispose();
     super.dispose();
+  }
+
+  // ------------------------------------------------------- horizontal scroll
+
+  /// Shift+wheel (or a horizontal wheel/trackpad delta) scrolls the code.
+  /// At the edges the event is left unclaimed so it chains to the outer pane
+  /// strip, which keeps Shift+wheel working to move between patches.
+  void _onPointerSignal(PointerSignalEvent e) {
+    if (e is! PointerScrollEvent || _maxHx <= 0) return;
+    var dx = e.scrollDelta.dx;
+    if (dx == 0 && HardwareKeyboard.instance.isShiftPressed) dx = e.scrollDelta.dy;
+    if (dx == 0) return;
+    final next = (_hx.value + dx).clamp(0.0, _maxHx);
+    if (next == _hx.value) return;
+    GestureBinding.instance.pointerSignalResolver.register(e, (_) {
+      _hx.value = (_hx.value + dx).clamp(0.0, _maxHx);
+    });
+  }
+
+  void _onPanZoom(PointerPanZoomUpdateEvent e) {
+    final d = e.panDelta;
+    if (_maxHx <= 0 || d.dx.abs() <= d.dy.abs()) return;
+    _hx.value = (_hx.value - d.dx).clamp(0.0, _maxHx);
   }
 
   // ------------------------------------------------------------- selection
@@ -221,6 +247,7 @@ class _DiffViewState extends State<DiffView> {
               numberWidth: numberWidth,
               codeStyle: codeStyle,
               onGutterDown: (s) => _beginSelection(i, s),
+              hOffset: _hx,
             );
           }
           final lk = row.a >= 0 ? (pid, row.file, row.hunk, row.a) : null;
@@ -237,6 +264,7 @@ class _DiffViewState extends State<DiffView> {
                 numberWidth: numberWidth,
                 codeStyle: codeStyle,
                 onGutterDown: (s) => _beginSelection(i, s),
+                hOffset: _hx,
               ),
             ),
             SizedBox(width: 1, child: ColoredBox(color: dividerColor)),
@@ -251,6 +279,7 @@ class _DiffViewState extends State<DiffView> {
                 numberWidth: numberWidth,
                 codeStyle: codeStyle,
                 onGutterDown: (s) => _beginSelection(i, s),
+                hOffset: _hx,
               ),
             ),
           ]);
@@ -269,38 +298,46 @@ class _DiffViewState extends State<DiffView> {
       ),
     );
 
-    // Explicit scrollbars only (the platform default would add duplicates).
+    // Explicit scrollbar only (the platform default would add a duplicate).
     final noAutoBars = ScrollConfiguration.of(context).copyWith(scrollbars: false);
-    Widget body;
-    if (widget.horizontalScroll) {
-      body = LayoutBuilder(builder: (context, c) {
-        final contentWidth = codeIndent + math.min(layout.maxLineChars, 2000) * m.charWidth + 48;
-        final width = math.max(c.maxWidth, contentWidth);
-        return Scrollbar(
-          controller: widget.controller,
-          notificationPredicate: (n) => n.depth == 1 && n.metrics.axis == Axis.vertical,
+    final charWidth = monoCharWidth(codeStyle);
+    final gutter = unified ? numberWidth * 2 + 36 : numberWidth + 36;
+
+    final body = LayoutBuilder(builder: (context, c) {
+      final codeWidth = (unified ? c.maxWidth : (c.maxWidth - 1) / 2) - gutter;
+      final contentWidth = math.min(layout.maxLineChars, 2000) * charWidth + 32;
+      _maxHx = math.max(0.0, contentWidth - codeWidth);
+      if (_hx.value > _maxHx) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _hx.value = math.min(_hx.value, _maxHx));
+      }
+      return Stack(children: [
+        Positioned.fill(
           child: Scrollbar(
-            controller: _h,
-            notificationPredicate: (n) => n.depth == 0 && n.metrics.axis == Axis.horizontal,
-            child: ScrollConfiguration(
-              behavior: noAutoBars,
-              child: SingleChildScrollView(
-                controller: _h,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(width: width, height: c.maxHeight, child: list),
-              ),
-            ),
+            controller: widget.controller,
+            child: ScrollConfiguration(behavior: noAutoBars, child: list),
           ),
-        );
-      });
-    } else {
-      body = Scrollbar(
-        controller: widget.controller,
-        child: ScrollConfiguration(behavior: noAutoBars, child: list),
-      );
-    }
+        ),
+        if (_maxHx > 0)
+          Positioned(
+            left: unified ? gutter : 0,
+            right: 14,
+            bottom: 0,
+            child: unified
+                ? HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)
+                : Row(children: [
+                    // In split view one thumb per side, both bound to the same offset.
+                    SizedBox(width: gutter),
+                    Expanded(child: HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)),
+                    SizedBox(width: gutter + 1),
+                    Expanded(child: HScrollBar(offset: _hx, maxOffset: _maxHx, viewport: codeWidth)),
+                  ]),
+          ),
+      ]);
+    });
 
     return Listener(
+      onPointerSignal: _onPointerSignal,
+      onPointerPanZoomUpdate: _onPanZoom,
       onPointerMove: _onPointerMove,
       onPointerUp: _endDrag,
       onPointerCancel: _endDrag,

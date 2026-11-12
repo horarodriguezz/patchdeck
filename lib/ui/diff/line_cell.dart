@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -24,7 +25,11 @@ class LineCell extends StatefulWidget {
     required this.numberWidth,
     required this.codeStyle,
     required this.onGutterDown,
+    required this.hOffset,
   });
+
+  /// Horizontal scroll of the code column (shared by both split sides).
+  final ValueListenable<double> hOffset;
 
   /// Null renders an empty filler cell (split view without counterpart).
   final DiffLine? line;
@@ -117,11 +122,22 @@ class _LineCellState extends State<LineCell> {
           Expanded(
             child: kind == LineKind.noNewline
                 ? Text(line.text, style: numStyle.copyWith(fontStyle: FontStyle.italic), maxLines: 1)
-                : RichText(
-                    text: buildCodeSpan(line, widget.codeStyle.copyWith(color: t.codeFg), t.tokenColors),
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.clip,
+                : ClipRect(
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: widget.hOffset,
+                      // Only the transform rebuilds on scroll; the text is laid out once.
+                      builder: (context, x, child) => Transform.translate(offset: Offset(-x, 0), child: child),
+                      child: OverflowBox(
+                        alignment: Alignment.centerLeft,
+                        minWidth: 0,
+                        maxWidth: double.infinity,
+                        child: RichText(
+                          text: buildCodeSpan(line, widget.codeStyle.copyWith(color: t.codeFg), t.tokenColors),
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
+                      ),
+                    ),
                   ),
           ),
         ]),

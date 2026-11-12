@@ -20,6 +20,12 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build linux --release
+      - name: Install script (per-user)
+        run: |
+          ./scripts/install.sh --skip-deps
+          test -x ~/.local/lib/patchdeck/patchdeck
+          desktop-file-validate ~/.local/share/applications/dev.patchdeck.patchdeck.desktop || true
+          test -f ~/.local/share/icons/hicolor/scalable/apps/dev.patchdeck.patchdeck.svg
       - uses: actions/upload-artifact@v4
         with:
           name: patchdeck-linux-x64
@@ -29,13 +35,12 @@ jobs:
     runs-on: ubuntu-24.04
     container: fedora:41
     steps:
-      - run: dnf install -y git clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel curl unzip xz which tar
+      - run: dnf install -y git
       - uses: actions/checkout@v4
-      - name: Install Flutter
-        run: git clone --depth 1 -b stable https://github.com/flutter/flutter.git /opt/flutter
-      - name: Build
+      - name: Full install with scripts/install.sh (deps + Flutter + build + desktop entry)
         run: |
           git config --global --add safe.directory '*'
-          export PATH=/opt/flutter/bin:$PATH
-          flutter pub get
-          flutter build linux --release
+          ./scripts/install.sh
+          test -x ~/.local/lib/patchdeck/patchdeck
+          test -f ~/.local/share/applications/dev.patchdeck.patchdeck.desktop
+          test -f ~/.local/share/icons/hicolor/scalable/apps/dev.patchdeck.patchdeck.svg

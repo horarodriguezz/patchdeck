@@ -42,8 +42,6 @@ class _PanesViewState extends State<PanesView> {
         workspace: widget.workspace,
         selection: widget.selection,
         showName: multi,
-        // Inner horizontal scrolling would steal shift+wheel from the pane strip.
-        horizontalScroll: !multi && widget.mode == DiffMode.unified,
         callbacks: widget.callbacks,
       );
 
@@ -68,6 +66,9 @@ class _PanesViewState extends State<PanesView> {
         child: ListView.builder(
           controller: _h,
           scrollDirection: Axis.horizontal,
+          // Leave a band for the strip's own scrollbar below the panes'
+          // horizontal code scrollbars.
+          padding: const EdgeInsets.only(bottom: 12),
           itemExtent: paneWidth,
           itemCount: ids.length,
           itemBuilder: (context, i) => DecoratedBox(

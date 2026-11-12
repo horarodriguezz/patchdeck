@@ -205,6 +205,7 @@ class CommentRow extends StatelessWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 10),
                       Text(summary, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
                       const SizedBox(width: 6),
                       _MiniIcon(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: onCopy),

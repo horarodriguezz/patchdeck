@@ -15,7 +15,6 @@ class DiffPane extends StatefulWidget {
     required this.workspace,
     required this.selection,
     required this.showName,
-    required this.horizontalScroll,
     required this.callbacks,
   });
 
@@ -23,7 +22,6 @@ class DiffPane extends StatefulWidget {
   final WorkspaceController workspace;
   final SelectionController selection;
   final bool showName;
-  final bool horizontalScroll;
   final CommentCallbacks callbacks;
 
   @override
@@ -140,7 +138,6 @@ class _DiffPaneState extends State<DiffPane> {
                 mode: settings.diffMode,
                 metrics: metrics,
                 controller: _scroll,
-                horizontalScroll: widget.horizontalScroll,
                 callbacks: widget.callbacks,
               ),
       ),

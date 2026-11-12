@@ -18,6 +18,9 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
   - **Varios patches por review**, cada uno en su pestaña, nombrados `A`, `B`, `C`, … `Z`, `AA`… (renombrables).
   - **Varios patches lado a lado**: `Ctrl+clic` en una pestaña (o menú ▾ → *Ver lado a lado*). Con dos patches
     cada uno ocupa la mitad; con tres o más se desbordan horizontalmente y se navega con `Shift+rueda`.
+  - **Scroll horizontal** del código (Shift+rueda, rueda/trackpad horizontal o la barra inferior). En vista
+    dividida ambos lados se mueven juntos; los encabezados de archivo y hunk quedan fijos. Al llegar al borde,
+    Shift+rueda pasa al siguiente patch (sobre la barra superior de un patch, siempre mueve entre patches).
   - Vista **unificada** o **dividida** (split).
   - **Resaltado de sintaxis** para JavaScript / TypeScript / CSS (SCSS/LESS básico).
   - Soporta `git diff`, `git show`, `git format-patch` (muestra el mensaje del commit) y `diff -u`; renombres,
@@ -47,45 +50,44 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 | **Pestaña de comentarios** | **Finalizar review** |
 | ![](docs/screenshots/comments-tab.png) | ![](docs/screenshots/finalize.png) |
 
-## Compilar desde el código fuente
+## Instalación (Fedora / Ubuntu)
 
-Requisitos: Flutter (stable, ≥ 3.32 · Dart ≥ 3.8) y el toolchain nativo de Linux (clang, cmake, ninja, pkg-config, GTK 3).
-
-### Fedora
-
-```bash
-sudo dnf install -y clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel git curl unzip xz which
-```
-
-### Ubuntu / Debian
+Un solo script que funciona en ambas: instala las dependencias de compilación (`dnf` o `apt`, pide `sudo`),
+descarga Flutter si no lo tienes (en `~/.local/share/patchdeck-sdk`, sólo para compilar), compila y
+instala la app con su **ícono** y su **lanzador `.desktop`**, así aparece en el menú de aplicaciones.
 
 ```bash
-sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev git curl unzip xz-utils
-```
-
-(O simplemente `make deps`, que detecta la distro.)
-
-### Flutter
-
-```bash
-git clone --depth 1 -b stable https://github.com/flutter/flutter.git ~/.local/flutter
+git clone https://github.com/horarodriguezz/patchdeck && cd patchdeck
 ```
 
 ```bash
-export PATH="$HOME/.local/flutter/bin:$PATH"
+./scripts/install.sh
 ```
 
-### Build e instalación
+Opciones:
+
+| Comando | Qué hace |
+|---|---|
+| `./scripts/install.sh` | Instala para tu usuario en `~/.local` (binario, `.desktop`, íconos) |
+| `./scripts/install.sh --system` | Instala para todo el sistema en `/usr/local` |
+| `./scripts/install.sh --skip-deps` | No toca paquetes del sistema (ya los tienes) |
+| `./scripts/install.sh --uninstall` | Desinstala (tus reviews y configuración se conservan) |
+
+Para actualizar: `git pull` y volver a ejecutar `./scripts/install.sh --skip-deps`.
+
+### Compilar a mano
+
+Requisitos: Flutter (stable, ≥ 3.32 · Dart ≥ 3.8) y el toolchain nativo (clang, cmake, ninja, pkg-config, GTK 3).
 
 ```bash
-make build      # binario en build/linux/x64/release/bundle/patchdeck
+make deps    # dependencias del sistema (Fedora o Ubuntu)
 ```
 
 ```bash
-make install    # instala en ~/.local (binario, .desktop e icono). PREFIX=/usr/local para sistema
+make build   # binario en build/linux/x64/release/bundle/patchdeck
 ```
 
-Otros: `make run` (modo debug), `make test`, `make analyze`, `make uninstall`.
+Otros: `make run` (modo debug), `make test`, `make analyze`, `make install` / `make uninstall`.
 
 ## Dónde se guardan los datos
 
