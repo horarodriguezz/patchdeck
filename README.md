@@ -37,8 +37,11 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 - **Comentarios**: al seleccionar aparece el editor; primero el input de **etiquetas** (escribe para filtrar,
   `Enter` agrega, `Backspace` quita), luego el texto. `Ctrl+Enter` guarda, `Esc` cancela. Un comentario aplica a
   todas las líneas seleccionadas de todos los archivos. Clic en un comentario para editarlo.
-- **Copiar**: un comentario se copia como `[etiquetas] archivo L3-L5 · otro.css L11: texto`; "copiar todos" los
-  une con una línea en blanco. Los comentarios **denegados** nunca se copian.
+- **Copiar**: cada comentario se copia según una **plantilla configurable** (Configuración → Copiar comentarios),
+  por defecto `{{fileName + lines}}:  {{commentText}}` → `greet.ts L2-L3 · app.css L11:  texto`. Variables:
+  `{{fileName + lines}}`, `{{filePath + lines}}`, `{{fileName}}`, `{{filePath}}`, `{{lines}}`, `{{commentText}}`,
+  `{{commentTags}}`, `{{patchName}}`, con texto fijo libre entre ellas. "Copiar todos" los une con una línea en
+  blanco. Los comentarios **denegados** nunca se copian.
 - **Denegar**: marca un comentario como descartado sin borrarlo; se muestra apagado y tachado en todos lados.
 - **Finalizar review**: resumen con estadísticas, filtro por etiqueta, todos los comentarios por patch con un
   extracto del código al que apuntan, y acciones de editar / denegar / eliminar / copiar. Las notas y el contexto

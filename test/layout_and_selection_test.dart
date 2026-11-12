@@ -126,19 +126,24 @@ void main() {
     );
     final labels = {for (final l in AppSettings.defaults().labels) l.id: l};
     final names = {'p1': 'A', 'p2': 'B'};
+    String fmt(ReviewComment x, String t, [String? pid]) =>
+        formatComment(x, labelById: (id) => labels[id], patchNames: names, patchId: pid, template: t);
+
+    // Default: {{fileName + lines}}:  {{commentText}}
+    expect(fmt(c, defaultCopyTemplate, 'p1'), 'a.ts L3-L5, L9, L2 (eliminada) · b.css L7:  Arreglar esto');
+    const custom = '[{{commentTags}}] {{filePath + lines}}: {{commentText}}';
+    expect(fmt(c, custom, 'p1'), '[bug, nit] src/a.ts L3-L5, L9, L2 (eliminada) · b.css L7: Arreglar esto');
+    expect(fmt(c, custom), '[bug, nit] A: src/a.ts L3-L5, L9, L2 (eliminada) · b.css L7 | B: c.ts L1: Arreglar esto');
+    // Spaces inside braces don't matter; unknown variables stay verbatim; fixed text is kept.
     expect(
-      formatComment(c, labelById: (id) => labels[id], patchNames: names, patchId: 'p1'),
-      '[bug, nit] src/a.ts L3-L5, L9, L2 (eliminada) · b.css L7: Arreglar esto',
-    );
-    expect(
-      formatComment(c, labelById: (id) => labels[id], patchNames: names),
-      '[bug, nit] A: src/a.ts L3-L5, L9, L2 (eliminada) · b.css L7 | B: c.ts L1: Arreglar esto',
+      fmt(c, '{{ fileName+lines }} -> {{nope}} ({{patchName}}) {{lines}} {{fileName}} {{filePath}}', 'p2'),
+      'c.ts L1 -> {{nope}} (B) L1 c.ts c.ts',
     );
     final dismissed = c.copyWith(dismissed: true);
     final other = c.copyWith(text: 'otro', labelIds: []);
     expect(
       formatComments([c, dismissed, other], labelById: (id) => labels[id], patchNames: names, patchId: 'p2'),
-      '[bug, nit] c.ts L1: Arreglar esto\n\nc.ts L1: otro',
+      'c.ts L1:  Arreglar esto\n\nc.ts L1:  otro',
     );
     final review = Review(
       id: 'r',
@@ -149,7 +154,13 @@ void main() {
       comments: [c, dismissed],
     );
     expect(commentsForPatch(review, 'p2').length, 1);
-    expect(exportAllCommentsText(review, (id) => labels[id]), startsWith('Patch B\n\n[bug, nit] c.ts L1'));
+    expect(exportAllCommentsText(review, (id) => labels[id]), 'Patch B\n\nc.ts L1:  Arreglar esto');
+    expect(AppSettings.fromJson(AppSettings.defaults().copyWith(copyTemplate: custom).toJson()).copyTemplate, custom);
+    expect(AppSettings.fromJson({}).copyTemplate, defaultCopyTemplate);
+    expect(
+      AppSettings.fromJson(AppSettings.defaults().copyWith(codeFontFamily: 'JetBrains Mono').toJson()).codeFontFamily,
+      'JetBrains Mono',
+    );
     expect(ReviewComment.fromJson(dismissed.toJson()).dismissed, isTrue);
   });
 }

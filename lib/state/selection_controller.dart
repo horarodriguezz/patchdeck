@@ -69,7 +69,12 @@ class SelectionController extends ChangeNotifier {
     _apply(row);
   }
 
-  void end() => _drag = null;
+  /// Finishes a drag; listeners (the composer) react now that the range is final.
+  void end() {
+    if (_drag == null) return;
+    _drag = null;
+    notifyListeners();
+  }
 
   void _apply(int row) {
     final d = _drag!;

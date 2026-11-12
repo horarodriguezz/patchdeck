@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../app_scope.dart';
 import '../../models/app_settings.dart';
 import '../../models/label.dart';
+import '../../models/review.dart';
+import '../../state/comment_format.dart';
 import '../../services/app_paths.dart';
 import '../../services/system_fonts.dart';
 import '../../theme/app_themes.dart';
@@ -18,6 +20,7 @@ enum SettingsPage {
   general('General', Icons.tune),
   editor('Editor de código', Icons.code),
   labels('Etiquetas', Icons.label_outline),
+  copy('Copiar comentarios', Icons.content_copy),
   data('Datos y sistema', Icons.computer_outlined);
 
   const SettingsPage(this.title, this.icon);
@@ -26,7 +29,7 @@ enum SettingsPage {
 }
 
 const settingsNav = [
-  ('Preferencias', [SettingsPage.general, SettingsPage.editor, SettingsPage.labels]),
+  ('Preferencias', [SettingsPage.general, SettingsPage.editor, SettingsPage.labels, SettingsPage.copy]),
   ('Esta computadora', [SettingsPage.data]),
 ];
 
@@ -145,6 +148,14 @@ final List<_Entry> _entries = [
     'Título, descripción y color. Se eligen al comentar.',
     keywords: 'labels tags color',
     (context) => const _LabelsEditor(),
+  ),
+  _Entry(
+    SettingsPage.copy,
+    'Formato',
+    'Plantilla de copiado',
+    'Cómo se copia cada comentario con «Copiar comentario» y «Copiar todos».',
+    keywords: 'copy template formato plantilla clipboard portapapeles',
+    (context) => const _CopyTemplateEditor(),
   ),
   _Entry(
     SettingsPage.data,
@@ -394,6 +405,142 @@ class _LabelsEditor extends StatelessWidget {
                     );
                   },
                 ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CopyTemplateEditor extends StatefulWidget {
+  const _CopyTemplateEditor();
+
+  @override
+  State<_CopyTemplateEditor> createState() => _CopyTemplateEditorState();
+}
+
+class _CopyTemplateEditorState extends State<_CopyTemplateEditor> {
+  late final _ctrl = TextEditingController(text: AppScope.of(context).settings.settings.copyTemplate);
+  final _focus = FocusNode();
+
+  static final _sample = [
+    ReviewComment(
+      id: 's1',
+      anchors: [
+        for (final n in [2, 3]) LineAnchor(patchId: 'p', path: 'src/components/greet.ts', newLine: n),
+        const LineAnchor(patchId: 'p', path: 'styles/app.css', newLine: 11),
+      ],
+      labelIds: const ['bug', 'nit'],
+      text: 'Falta validar que name no sea vacío.',
+      createdAt: DateTime(2024),
+      updatedAt: DateTime(2024),
+    ),
+    ReviewComment(
+      id: 's2',
+      anchors: const [LineAnchor(patchId: 'p', path: 'src/store.ts', oldLine: 40)],
+      labelIds: const ['question'],
+      text: '¿Por qué se elimina este caché?',
+      createdAt: DateTime(2024),
+      updatedAt: DateTime(2024),
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _set(String v) => AppScope.of(context).settings.setCopyTemplate(v);
+
+  void _insert(String variable) {
+    final text = _ctrl.text;
+    final sel = _ctrl.selection;
+    final start = sel.isValid ? sel.start : text.length;
+    final end = sel.isValid ? sel.end : text.length;
+    final ins = '{{$variable}}';
+    _ctrl.value = TextEditingValue(
+      text: text.replaceRange(start, end, ins),
+      selection: TextSelection.collapsed(offset: start + ins.length),
+    );
+    _focus.requestFocus();
+    _set(_ctrl.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final settings = AppScope.of(context).settings;
+    final mono = TextStyle(fontFamily: monoFamily, fontFamilyFallback: monoFallback, fontSize: 12.5);
+    final preview = formatComments(
+      _sample,
+      labelById: settings.labelById,
+      patchNames: const {'p': 'A'},
+      template: settings.settings.copyTemplate,
+    );
+    final isDefault = settings.settings.copyTemplate == defaultCopyTemplate;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingsRow(
+          title: 'Plantilla de copiado',
+          description:
+              'Cómo se copia cada comentario con «Copiar comentario» y «Copiar todos» (separados por una línea '
+              'en blanco). Escribe texto fijo entre las variables; los denegados nunca se copian.',
+          trailing: TextButton.icon(
+            onPressed: isDefault
+                ? null
+                : () {
+                    _ctrl.text = defaultCopyTemplate;
+                    _set(defaultCopyTemplate);
+                  },
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('Restablecer'),
+          ),
+        ),
+        TextField(
+          controller: _ctrl,
+          focusNode: _focus,
+          minLines: 1,
+          maxLines: 4,
+          style: mono.copyWith(fontSize: 13),
+          decoration: const InputDecoration(hintText: defaultCopyTemplate),
+          onChanged: _set,
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('Insertar:', style: theme.textTheme.bodySmall),
+            for (final (name, help) in copyTemplateVariables)
+              Tooltip(
+                message: help,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    textStyle: mono.copyWith(fontSize: 12),
+                  ),
+                  onPressed: () => _insert(name),
+                  child: Text('{{$name}}'),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Text('Vista previa', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.dividerColor),
+          ),
+          child: SelectableText(preview.isEmpty ? '(vacío)' : preview, style: mono.copyWith(height: 1.5)),
         ),
       ],
     );

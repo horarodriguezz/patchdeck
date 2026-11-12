@@ -94,7 +94,11 @@ class _FinalizeScreenState extends State<FinalizeScreen> {
                   onPressed: active == 0
                       ? null
                       : () => actions.copyText(
-                          exportAllCommentsText(ws.review, settings.labelById),
+                          exportAllCommentsText(
+                            ws.review,
+                            settings.labelById,
+                            template: settings.settings.copyTemplate,
+                          ),
                           '$active ${active == 1 ? 'comentario copiado' : 'comentarios copiados'}',
                         ),
                   icon: const Icon(Icons.copy_all, size: 16),

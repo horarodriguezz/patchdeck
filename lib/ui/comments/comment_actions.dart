@@ -17,8 +17,13 @@ class CommentActions {
 
   Map<String, String> get patchNames => {for (final p in ws.patches) p.id: p.name};
 
-  String format(ReviewComment c, {String? patchId}) =>
-      formatComment(c, labelById: AppScope.of(context).settings.labelById, patchNames: patchNames, patchId: patchId);
+  String format(ReviewComment c, {String? patchId}) => formatComment(
+    c,
+    labelById: AppScope.of(context).settings.labelById,
+    patchNames: patchNames,
+    patchId: patchId,
+    template: AppScope.of(context).settings.settings.copyTemplate,
+  );
 
   void copyOne(ReviewComment c, {String? patchId}) => _copy(format(c, patchId: patchId), 'Comentario copiado');
 
@@ -30,6 +35,7 @@ class CommentActions {
       labelById: AppScope.of(context).settings.labelById,
       patchNames: patchNames,
       patchId: patchId,
+      template: AppScope.of(context).settings.settings.copyTemplate,
     );
     if (text.isEmpty) {
       _toast('El patch $name no tiene comentarios activos');
@@ -68,6 +74,10 @@ class CommentActions {
           content: const Text('Comentario eliminado'),
           behavior: SnackBarBehavior.floating,
           width: 360,
+          // With an action Flutter keeps the snackbar until dismissed unless
+          // persist is false.
+          persist: false,
+          duration: const Duration(seconds: 5),
           action: SnackBarAction(label: 'Deshacer', onPressed: () => ws.restoreComment(c, index)),
         ),
       );

@@ -9,11 +9,21 @@ List<ReviewComment> commentsForPatch(Review review, String patchId, {bool includ
 ];
 
 /// Plain-text copy of every active comment, grouped by patch.
-String exportAllCommentsText(Review review, ReviewLabel? Function(String) labelById) {
+String exportAllCommentsText(
+  Review review,
+  ReviewLabel? Function(String) labelById, {
+  String template = defaultCopyTemplate,
+}) {
   final names = {for (final p in review.patches) p.id: p.name};
   final sections = <String>[];
   for (final p in review.patches) {
-    final text = formatComments(commentsForPatch(review, p.id), labelById: labelById, patchNames: names, patchId: p.id);
+    final text = formatComments(
+      commentsForPatch(review, p.id),
+      labelById: labelById,
+      patchNames: names,
+      patchId: p.id,
+      template: template,
+    );
     if (text.isNotEmpty) sections.add('Patch ${p.name}\n\n$text');
   }
   return sections.join('\n\n');

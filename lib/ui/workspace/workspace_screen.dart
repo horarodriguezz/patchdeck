@@ -319,10 +319,15 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                           child: Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 760),
-                              child: CommentComposer(
-                                key: ValueKey('composer-${_selection.session}'),
-                                workspace: ws,
-                                selection: _selection,
+                              // Hidden (not removed, so typed text survives a
+                              // Ctrl+drag) while a range is being dragged.
+                              child: Offstage(
+                                offstage: _selection.isDragging,
+                                child: CommentComposer(
+                                  key: ValueKey('composer-${_selection.session}'),
+                                  workspace: ws,
+                                  selection: _selection,
+                                ),
                               ),
                             ),
                           ),
