@@ -123,13 +123,9 @@ class _DiffPaneState extends State<DiffPane> {
                 Tooltip(
                   message: 'Archivos marcados como vistos',
                   child: Row(
+                    spacing: 6,
                     children: [
-                      Icon(
-                        viewed == parsed.files.length ? Icons.check_circle : Icons.check_circle_outline,
-                        size: 14,
-                        color: viewed == parsed.files.length ? theme.colorScheme.primary : muted,
-                      ),
-                      const SizedBox(width: 4),
+                      _ViewedBadge(all: viewed == parsed.files.length, color: muted),
                       Text('$viewed/${parsed.files.length} vistos', style: TextStyle(color: muted, fontSize: 12)),
                     ],
                   ),
@@ -205,6 +201,30 @@ class _DiffPaneState extends State<DiffPane> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Small check box mirroring the per-file "Visto" toggle (filled when every
+/// file of the patch has been viewed).
+class _ViewedBadge extends StatelessWidget {
+  const _ViewedBadge({required this.all, required this.color});
+  final bool all;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: 13,
+      height: 13,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: all ? primary : null,
+        border: Border.all(color: all ? primary : color, width: 1.4),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: all ? Icon(Icons.check, size: 10, color: Theme.of(context).colorScheme.onPrimary) : null,
     );
   }
 }
