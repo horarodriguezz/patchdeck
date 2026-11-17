@@ -19,6 +19,7 @@ import 'package:patchdeck/state/workspace_controller.dart';
 import 'package:patchdeck/ui/diff/code_text.dart';
 import 'package:patchdeck/ui/diff/diff_rows.dart';
 import 'package:patchdeck/ui/diff/diff_view.dart';
+import 'package:patchdeck/ui/workspace/search_bar.dart';
 
 final _raw = File('test/fixtures/sample.patch').readAsStringSync();
 
@@ -37,6 +38,42 @@ Review _review() => Review(
   updatedAt: DateTime(2024),
   patches: [PatchEntry(id: 'p1', name: 'A', raw: _raw, createdAt: DateTime(2024))],
 );
+
+Future<ShellController> _pumpWorkspace(WidgetTester tester, Size size) async {
+  // Short window so the small fixture patch scrolls.
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  // The test font (Ahem) is wider than real fonts: ignore overflow stripes.
+  final onError = FlutterError.onError;
+  FlutterError.onError = (d) {
+    if (d.exceptionAsString().contains('overflowed')) return;
+    onError?.call(d);
+  };
+  addTearDown(() => FlutterError.onError = onError);
+  final tmp = Directory.systemTemp.createTempSync('patchdeck_ws');
+  final paths = AppPaths(configDir: Directory('${tmp.path}/c'), dataDir: Directory('${tmp.path}/d'));
+  final repo = ReviewRepository(paths);
+  await tester.runAsync(() => repo.save(_review()));
+  final reviews = ReviewsController(repo);
+  await tester.runAsync(reviews.refresh);
+  final shell = ShellController()..openReview('r1');
+  await tester.pumpWidget(
+    AppScope(
+      settings: SettingsController(SettingsRepository(paths), AppSettings.defaults()),
+      reviews: reviews,
+      reviewRepo: repo,
+      shell: shell,
+      child: const PatchdeckApp(),
+    ),
+  );
+  // Load + parse happen off the fake clock.
+  for (var i = 0; i < 50 && find.byType(FileHeaderRow).evaluate().isEmpty; i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.pump();
+  }
+  return shell;
+}
 
 void main() {
   test('viewed files persist, collapse, and survive a reload', () async {
@@ -105,38 +142,7 @@ void main() {
   });
 
   testWidgets('Ctrl+F searches, Ctrl+B / Ctrl+L toggle panels, headers stick and can be marked viewed', (tester) async {
-    // Short window so the small fixture patch scrolls.
-    tester.view.physicalSize = const Size(1440, 480);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    // The test font (Ahem) is wider than real fonts: ignore overflow stripes.
-    final onError = FlutterError.onError;
-    FlutterError.onError = (d) {
-      if (d.exceptionAsString().contains('overflowed')) return;
-      onError?.call(d);
-    };
-    addTearDown(() => FlutterError.onError = onError);
-    final tmp = Directory.systemTemp.createTempSync('patchdeck_ws');
-    final paths = AppPaths(configDir: Directory('${tmp.path}/c'), dataDir: Directory('${tmp.path}/d'));
-    final repo = ReviewRepository(paths);
-    await tester.runAsync(() => repo.save(_review()));
-    final reviews = ReviewsController(repo);
-    await tester.runAsync(reviews.refresh);
-    final shell = ShellController()..openReview('r1');
-    await tester.pumpWidget(
-      AppScope(
-        settings: SettingsController(SettingsRepository(paths), AppSettings.defaults()),
-        reviews: reviews,
-        reviewRepo: repo,
-        shell: shell,
-        child: const PatchdeckApp(),
-      ),
-    );
-    // Load + parse happen off the fake clock.
-    for (var i = 0; i < 50 && find.byType(FileHeaderRow).evaluate().isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-      await tester.pump();
-    }
+    final shell = await _pumpWorkspace(tester, const Size(1440, 480));
     expect(find.byType(FileHeaderRow), findsWidgets);
 
     // Panels.
@@ -194,5 +200,76 @@ void main() {
     shell.closeReview();
     await tester.pumpAndSettle();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+  });
+
+  testWidgets('code text can be selected, copied and sent to the search', (tester) async {
+    final shell = await _pumpWorkspace(tester, const Size(1440, 800));
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboard = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+    Finder lineText(String text) => find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText() == text);
+    const line = 'export function greet(name: string): string {';
+    final rect = tester.getRect(lineText(line));
+    final cw = rect.width / line.length;
+    Offset at(Rect r, int col) => Offset(r.left + (col + 0.5) * cw, r.center.dy);
+    Offset boundary(Rect r, int col) => Offset(r.left + col * cw + 1, r.center.dy);
+
+    // Double click selects the word.
+    final word = at(rect, line.indexOf('greet') + 2);
+    await tester.tapAt(word);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(word);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(clipboard, 'greet');
+
+    // Ctrl+F prefills the search and lands on the selected occurrence
+    // (case-insensitive: "Greeting" and the deleted line come before it).
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(
+      find.descendant(of: find.byType(DiffSearchBar), matching: find.byType(TextField)),
+    );
+    expect(field.controller!.text, 'greet');
+    expect(find.text('3 de 3'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    // Dragging across lines copies them joined by newlines.
+    // (wait out the double-click window so this press isn't a triple click)
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 450)));
+    final next = tester.getRect(lineText('  /* say hi'));
+    final g = await tester.startGesture(boundary(rect, 7));
+    await tester.pump();
+    await g.moveTo(boundary(next, 6));
+    await tester.pump();
+    await g.up();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(clipboard, 'function greet(name: string): string {\n  /* s');
+
+    shell.closeReview();
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+  });
+
+  test('code span paints the selection and the selected line break', () {
+    const line = DiffLine(LineKind.add, null, 1, 'abc');
+    final span = buildCodeSpan(line, const TextStyle(), const [], selection: (start: 1, end: 4));
+    final parts = [for (final c in span.children!) (c as TextSpan).text];
+    expect(parts, ['a', 'bc', ' ']);
+    expect((span.children![1] as TextSpan).style!.backgroundColor, isNotNull);
   });
 }

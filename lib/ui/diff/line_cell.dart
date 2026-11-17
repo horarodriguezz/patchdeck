@@ -28,7 +28,11 @@ class LineCell extends StatefulWidget {
     required this.onGutterDown,
     required this.hOffset,
     this.marks,
+    this.textSelection,
   });
+
+  /// Selected character range of this line (end past the text = line break too).
+  final ({int start, int end})? textSelection;
 
   /// Search matches to highlight on this line.
   final List<SearchMark>? marks;
@@ -130,24 +134,31 @@ class _LineCellState extends State<LineCell> {
             Expanded(
               child: kind == LineKind.noNewline
                   ? Text(line.text, style: numStyle.copyWith(fontStyle: FontStyle.italic), maxLines: 1)
-                  : ClipRect(
-                      child: ValueListenableBuilder<double>(
-                        valueListenable: widget.hOffset,
-                        // Only the transform rebuilds on scroll; the text is laid out once.
-                        builder: (context, x, child) => Transform.translate(offset: Offset(-x, 0), child: child),
-                        child: OverflowBox(
-                          alignment: Alignment.centerLeft,
-                          minWidth: 0,
-                          maxWidth: double.infinity,
-                          child: RichText(
-                            text: buildCodeSpan(
-                              line,
-                              widget.codeStyle.copyWith(color: t.codeFg),
-                              t.tokenColors,
-                              marks: widget.marks,
+                  : MouseRegion(
+                      cursor: SystemMouseCursors.text,
+                      child: ClipRect(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: widget.hOffset,
+                          // Only the transform rebuilds on scroll; the text is laid out once.
+                          builder: (context, x, child) => Transform.translate(offset: Offset(-x, 0), child: child),
+                          child: OverflowBox(
+                            alignment: Alignment.centerLeft,
+                            minWidth: 0,
+                            maxWidth: double.infinity,
+                            child: RichText(
+                              text: buildCodeSpan(
+                                line,
+                                widget.codeStyle.copyWith(color: t.codeFg),
+                                t.tokenColors,
+                                marks: widget.marks,
+                                selection: widget.textSelection,
+                                selectionBg:
+                                    TextSelectionTheme.of(context).selectionColor ??
+                                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                              ),
+                              maxLines: 1,
+                              softWrap: false,
                             ),
-                            maxLines: 1,
-                            softWrap: false,
                           ),
                         ),
                       ),

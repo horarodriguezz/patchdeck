@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../app_scope.dart';
 import '../../models/app_settings.dart';
 import '../../models/review.dart';
+import '../../state/code_selection.dart';
 import '../../state/diff_search.dart';
 import '../../state/review_export.dart';
 import '../../state/selection_controller.dart';
@@ -35,6 +36,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   WorkspaceController? _ws;
   final SelectionController _selection = SelectionController();
   final DiffSearchController _search = DiffSearchController();
+  final CodeSelection _codeSelection = CodeSelection();
   bool _notFound = false;
   bool _finalizing = false;
   late final AppScope _scope = AppScope.of(context);
@@ -74,6 +76,25 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   /// Keeps search results in sync with the visible patches.
   void _onWorkspace() => _search.sync(_ws!);
 
+  /// Opens the search; a single-line code selection becomes the query and
+  /// the search lands on that very occurrence.
+  void _openSearch(WorkspaceController ws) {
+    final sel = _codeSelection.text;
+    if (sel.isNotEmpty && !sel.contains('\n') && sel.trim().isNotEmpty) {
+      _search.show(prefill: sel);
+      _search.setQuery(ws, sel);
+      _search.sync(ws);
+      final key = _codeSelection.startKey;
+      if (key == null || !_search.selectAt(key, _codeSelection.startCol)) {
+        final m = _search.step(1);
+        if (m != null) ws.reveal(m.key, ifNeeded: true);
+      }
+      return;
+    }
+    _search.show();
+    _search.sync(ws);
+  }
+
   /// Global workspace shortcuts. A keyboard handler (rather than Shortcuts)
   /// so they work wherever the focus is, including inside the text editors.
   bool _onKey(KeyEvent e) {
@@ -86,8 +107,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     switch (e.logicalKey) {
       case LogicalKeyboardKey.keyF:
         if (ws.patches.isEmpty) return false;
-        _search.show();
-        _search.sync(ws);
+        _openSearch(ws);
       case LogicalKeyboardKey.keyB:
         ws.toggleLeft();
       case LogicalKeyboardKey.keyL:
@@ -113,6 +133,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     }
     _selection.dispose();
     _search.dispose();
+    _codeSelection.dispose();
     super.dispose();
   }
 
@@ -273,12 +294,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     TitleBarIconButton(
                       tooltip: 'Buscar (Ctrl+F)',
                       icon: const Icon(Icons.search),
-                      onPressed: ws.patches.isEmpty
-                          ? null
-                          : () {
-                              _search.show();
-                              _search.sync(ws);
-                            },
+                      onPressed: ws.patches.isEmpty ? null : () => _openSearch(ws),
                     ),
                     TitleBarIconButton(
                       tooltip: 'Copiar resumen (Markdown)',
@@ -370,6 +386,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                         mode: mode,
                         callbacks: _callbacks(),
                         search: _search,
+                        codeSelection: _codeSelection,
                       ),
                     ),
                     ListenableBuilder(

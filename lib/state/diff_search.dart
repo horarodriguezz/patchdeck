@@ -45,10 +45,30 @@ class DiffSearchController extends ChangeNotifier {
 
   bool get _active => _open && _query.isNotEmpty;
 
-  void show() {
+  /// Opens (or refocuses) the bar. [prefill] replaces the query text shown
+  /// in the field; the caller runs [setQuery] with it.
+  void show({String? prefill}) {
     _open = true;
+    if (prefill != null) this.prefill = prefill;
     focusRequest++;
     notifyListeners();
+  }
+
+  /// Text the field should show on its next focus request (see [show]).
+  String? prefill;
+
+  /// Makes the match at [key] / [start] the current one, if there is one.
+  bool selectAt(LineKey key, int start) {
+    final idx = _byLine[key];
+    if (idx == null) return false;
+    for (final i in idx) {
+      if (_matches[i].start == start) {
+        _current = i;
+        notifyListeners();
+        return true;
+      }
+    }
+    return false;
   }
 
   void hide() {

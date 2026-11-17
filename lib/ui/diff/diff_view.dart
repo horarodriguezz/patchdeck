@@ -10,7 +10,9 @@ import '../../diff/diff_layout.dart';
 import '../../models/app_settings.dart';
 import '../../models/label.dart';
 import '../../models/review.dart';
+import '../../diff/diff_models.dart';
 import 'comment_callbacks.dart';
+import '../../state/code_selection.dart';
 import '../../state/diff_search.dart';
 import '../../state/patch_model.dart';
 import '../../state/selection_controller.dart';
@@ -19,6 +21,7 @@ import '../../theme/app_themes.dart';
 import '../../theme/diff_theme.dart';
 import 'diff_rows.dart';
 import 'h_scrollbar.dart';
+import 'code_text.dart';
 import 'line_cell.dart';
 
 /// Virtualized diff renderer.
@@ -39,6 +42,7 @@ class DiffView extends StatefulWidget {
     required this.controller,
     required this.callbacks,
     required this.search,
+    required this.codeSelection,
   });
 
   final WorkspaceController workspace;
@@ -50,6 +54,7 @@ class DiffView extends StatefulWidget {
   final ScrollController controller;
   final CommentCallbacks callbacks;
   final DiffSearchController search;
+  final CodeSelection codeSelection;
 
   @override
   State<DiffView> createState() => _DiffViewState();
@@ -72,10 +77,26 @@ class _DiffViewState extends State<DiffView> {
 
   SearchMatch? _lastMatch;
 
+  // Geometry of the last build, used to map pointer positions to text.
+  double _viewWidth = 0;
+  double _numberWidth = 0;
+  TextStyle _codeStyle = const TextStyle();
+  bool _stickyShown = false;
+
+  /// Mouse text selection (rows of [DiffView.layout], columns in the line).
+  _TextSel? _sel;
+  bool _textDragging = false;
+  final ValueNotifier<int> _selVersion = ValueNotifier(0);
+  final FocusNode _focus = FocusNode(debugLabel: 'diff-text');
+  DateTime _lastDown = DateTime(0);
+  int _clicks = 0;
+  int _lastDownRow = -1;
+
   @override
   void initState() {
     super.initState();
     widget.search.addListener(_onSearch);
+    widget.codeSelection.addListener(_onCodeSelection);
   }
 
   @override
@@ -85,14 +106,259 @@ class _DiffViewState extends State<DiffView> {
       old.search.removeListener(_onSearch);
       widget.search.addListener(_onSearch);
     }
+    if (old.codeSelection != widget.codeSelection) {
+      old.codeSelection.removeListener(_onCodeSelection);
+      widget.codeSelection.addListener(_onCodeSelection);
+    }
+    // Row indices are only meaningful for the layout they were taken from.
+    if (!identical(old.layout, widget.layout) && _sel != null) _clearTextSelection(notify: false);
   }
 
   @override
   void dispose() {
     widget.search.removeListener(_onSearch);
+    widget.codeSelection.removeListener(_onCodeSelection);
+    widget.codeSelection.release(this);
     _autoScroll?.cancel();
     _hx.dispose();
+    _selVersion.dispose();
+    _focus.dispose();
     super.dispose();
+  }
+
+  // ------------------------------------------------------- text selection
+
+  /// Another pane took the selection: drop ours.
+  void _onCodeSelection() {
+    if (_sel != null && !identical(widget.codeSelection.owner, this)) {
+      _sel = null;
+      _selVersion.value++;
+    }
+  }
+
+  void _clearTextSelection({bool notify = true}) {
+    _sel = null;
+    _textDragging = false;
+    if (notify) _selVersion.value++;
+    widget.codeSelection.release(this);
+  }
+
+  /// The line shown at [row] on [side], or null (not a code line / empty side).
+  DiffLine? _lineAt(int row, Side side) {
+    if (row < 0 || row >= widget.layout.rows.length) return null;
+    final k = widget.layout.keyAt(row, side, widget.mode);
+    if (k == null) return null;
+    final l = widget.model.lineFor(k);
+    return l.kind == LineKind.noNewline ? null : l;
+  }
+
+  /// Left edge of [side]'s code text, in DiffView coordinates.
+  double _codeLeft(Side side) {
+    final unified = widget.mode == DiffMode.unified;
+    final gutter = unified ? _numberWidth * 2 + 36 : _numberWidth + 36;
+    if (unified || side == Side.left) return gutter;
+    return (_viewWidth - 1) / 2 + 1 + gutter;
+  }
+
+  /// Column of [line] under horizontal position [x] (measured, so it works
+  /// with any glyph width).
+  int _colAt(DiffLine line, double x) {
+    if (x <= 0) return 0;
+    var text = line.text;
+    if (text.length > maxRenderedChars) text = text.substring(0, maxRenderedChars);
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: _codeStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final pos = tp.getPositionForOffset(Offset(x, tp.height / 2)).offset;
+    tp.dispose();
+    return pos.clamp(0, text.length);
+  }
+
+  /// (row, column) under [p] on [side]; rows that aren't code lines map to
+  /// column 0, which the text extraction treats as the start of that row.
+  (int, int) _posAt(Offset p, Side side) {
+    final c = widget.controller;
+    final rows = widget.layout.rows;
+    var row = widget.layout.indexAt(p.dy + (c.hasClients ? c.offset : 0));
+    if (row < 0) row = 0;
+    if (row >= rows.length) row = rows.length - 1;
+    final line = _lineAt(row, side);
+    if (line == null) return (row, 0);
+    return (row, _colAt(line, p.dx - _codeLeft(side) + _hx.value));
+  }
+
+  /// Side of the split view under [x] (unified: always left).
+  Side _sideAt(double x) => widget.mode == DiffMode.unified || x < (_viewWidth - 1) / 2 ? Side.left : Side.right;
+
+  bool _inCode(Offset p, Side side) => p.dx >= _codeLeft(side);
+
+  void _onPointerDown(PointerDownEvent e) {
+    if (e.kind == PointerDeviceKind.mouse && e.buttons == kSecondaryMouseButton) {
+      if (_sel != null && !_sel!.isEmpty) _showContextMenu(e.position);
+      return;
+    }
+    if (e.buttons != kPrimaryButton) return;
+    // The gutter "+" handled this press (line selection for comments).
+    if (_dragging) {
+      if (_sel != null) _clearTextSelection();
+      return;
+    }
+    final p = e.localPosition;
+    if (_stickyShown && p.dy < FileHeaderRow.boxHeight) return;
+    final side = _sideAt(p.dx);
+    final (row, col) = _posAt(p, side);
+    final line = _lineAt(row, side);
+    if (line == null || !_inCode(p, side)) {
+      if (_sel != null) _clearTextSelection();
+      return;
+    }
+    _focus.requestFocus();
+
+    // Double click selects a word, triple click the whole line.
+    final now = DateTime.now();
+    _clicks = now.difference(_lastDown) < const Duration(milliseconds: 400) && row == _lastDownRow ? _clicks + 1 : 1;
+    _lastDown = now;
+    _lastDownRow = row;
+
+    widget.codeSelection.claim(this);
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+    final current = _sel;
+    if (shift && current != null && current.side == side) {
+      _sel = current.withFocus(row, col);
+    } else if (_clicks == 2) {
+      final (s, en) = _wordAt(line.text, col);
+      _sel = _TextSel(side, row, s, row, en);
+    } else if (_clicks >= 3) {
+      _sel = _TextSel(side, row, 0, row, line.text.length + 1);
+    } else {
+      _sel = _TextSel(side, row, col, row, col);
+    }
+    _textDragging = _clicks == 1;
+    _selVersion.value++;
+    if (!_textDragging) _publish();
+  }
+
+  (int, int) _wordAt(String text, int col) {
+    bool isWord(int i) => i >= 0 && i < text.length && RegExp(r'[\w$]').hasMatch(text[i]);
+    if (!isWord(col) && isWord(col - 1)) col--;
+    if (!isWord(col)) return (col, (col + 1).clamp(0, text.length));
+    var s = col, e = col;
+    while (isWord(s - 1)) {
+      s--;
+    }
+    while (isWord(e)) {
+      e++;
+    }
+    return (s, e);
+  }
+
+  void _updateTextDrag() {
+    final p = _lastPointer;
+    final sel = _sel;
+    if (p == null || sel == null) return;
+    final (row, col) = _posAt(p, sel.side);
+    final next = sel.withFocus(row, col);
+    if (next.focusRow == sel.focusRow && next.focusCol == sel.focusCol) return;
+    _sel = next;
+    _selVersion.value++;
+  }
+
+  /// Selected text, lines joined with "\n" (only lines of the anchor side).
+  String _selectedText() {
+    final sel = _sel;
+    if (sel == null || sel.isEmpty) return '';
+    final (sr, sc, er, ec) = sel.ordered;
+    final out = <String>[];
+    var any = false;
+    for (var r = sr; r <= er; r++) {
+      final line = _lineAt(r, sel.side);
+      if (line == null) continue;
+      final len = line.text.length;
+      final s = r == sr ? sc.clamp(0, len) : 0;
+      final e = r == er ? ec.clamp(0, len) : len;
+      out.add(line.text.substring(s, e < s ? s : e));
+      any = true;
+    }
+    if (!any) return '';
+    // A selection that ends past the last line's text includes its newline.
+    final last = _lineAt(er, sel.side);
+    if (last != null && ec > last.text.length) out.add('');
+    return out.join('\n');
+  }
+
+  void _publish() {
+    final sel = _sel;
+    if (sel == null) return;
+    final (sr, sc, _, _) = sel.ordered;
+    final text = _selectedText();
+    final key = widget.layout.keyAt(sr, sel.side, widget.mode);
+    widget.codeSelection.publish(this, text, key, sc);
+  }
+
+  /// Highlight range for [row] on [side], or null.
+  ({int start, int end})? _selFor(int row, Side side) {
+    final sel = _sel;
+    if (sel == null || sel.isEmpty || sel.side != side) return null;
+    final (sr, sc, er, ec) = sel.ordered;
+    if (row < sr || row > er) return null;
+    final line = _lineAt(row, side);
+    if (line == null) return null;
+    final len = line.text.length;
+    final s = row == sr ? sc : 0;
+    // Rows before the last one include their line break.
+    final e = row == er ? ec : len + 1;
+    if (e <= s) return null;
+    return (start: s, end: e);
+  }
+
+  Future<void> _copySelection() async {
+    final text = _selectedText();
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+  }
+
+  Future<void> _showContextMenu(Offset global) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final local = overlay.globalToLocal(global);
+    final v = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(local.dx, local.dy, overlay.size.width - local.dx, 0),
+      items: const [
+        PopupMenuItem(value: 'copy', height: 34, child: Text('Copiar (Ctrl+C)')),
+        PopupMenuItem(value: 'search', height: 34, child: Text('Buscar selección (Ctrl+F)')),
+      ],
+    );
+    if (v == 'copy') {
+      await _copySelection();
+    } else if (v == 'search') {
+      final text = _selectedText().split('\n').first;
+      if (text.trim().isEmpty) return;
+      widget.search.show(prefill: text);
+      widget.search.setQuery(widget.workspace, text);
+      final key = widget.codeSelection.startKey;
+      if (key == null || !widget.search.selectAt(key, widget.codeSelection.startCol)) {
+        final m = widget.search.step(1);
+        if (m != null) widget.workspace.reveal(m.key, ifNeeded: true);
+      }
+    }
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final hk = HardwareKeyboard.instance;
+    final ctrl = hk.isControlPressed || hk.isMetaPressed;
+    if (ctrl && e.logicalKey == LogicalKeyboardKey.keyC && _sel != null && !_sel!.isEmpty) {
+      _copySelection();
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.escape && _sel != null) {
+      _clearTextSelection();
+      // Let the workspace clear the line selection too.
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Scrolls the code horizontally so the active search match is visible.
@@ -160,6 +426,7 @@ class _DiffViewState extends State<DiffView> {
       builder: (context, _) {
         final c = widget.controller;
         final layout = widget.layout;
+        _stickyShown = false;
         if (!c.hasClients || layout.rows.isEmpty) return const SizedBox.shrink();
         final offset = c.offset;
         final row = layout.indexAt(offset);
@@ -168,6 +435,7 @@ class _DiffViewState extends State<DiffView> {
         if (f < 0) return const SizedBox.shrink();
         final headerTop = layout.offsets[layout.fileRow[f]] + FileHeaderRow.topGap;
         if (offset <= headerTop) return const SizedBox.shrink();
+        _stickyShown = true;
         var dy = 0.0;
         if (f + 1 < layout.fileRow.length) {
           final nextTop = layout.offsets[layout.fileRow[f + 1]] + FileHeaderRow.topGap;
@@ -218,7 +486,7 @@ class _DiffViewState extends State<DiffView> {
   }
 
   void _onPointerMove(PointerMoveEvent e) {
-    if (!_dragging) return;
+    if (!_dragging && !_textDragging) return;
     _lastPointer = e.localPosition;
     _updateDrag();
     final h = context.size?.height ?? 0;
@@ -244,6 +512,10 @@ class _DiffViewState extends State<DiffView> {
   }
 
   void _updateDrag() {
+    if (_textDragging) {
+      _updateTextDrag();
+      return;
+    }
     final p = _lastPointer;
     if (p == null || !widget.controller.hasClients) return;
     final y = p.dy + widget.controller.offset;
@@ -251,6 +523,17 @@ class _DiffViewState extends State<DiffView> {
   }
 
   void _endDrag([PointerEvent? _]) {
+    if (_textDragging) {
+      _textDragging = false;
+      _autoScroll?.cancel();
+      _autoDir = 0;
+      if (_sel != null && _sel!.isEmpty) {
+        _clearTextSelection();
+      } else {
+        _publish();
+      }
+      return;
+    }
     if (!_dragging) return;
     _dragging = false;
     _autoScroll?.cancel();
@@ -352,6 +635,7 @@ class _DiffViewState extends State<DiffView> {
               onGutterDown: (s) => _beginSelection(i, s),
               hOffset: _hx,
               marks: search.marksFor(key),
+              textSelection: _selFor(i, Side.left),
             );
           }
           final lk = row.a >= 0 ? (pid, row.file, row.hunk, row.a) : null;
@@ -372,6 +656,7 @@ class _DiffViewState extends State<DiffView> {
                   onGutterDown: (s) => _beginSelection(i, s),
                   hOffset: _hx,
                   marks: lk == null ? null : search.marksFor(lk),
+                  textSelection: _selFor(i, Side.left),
                 ),
               ),
               SizedBox(width: 1, child: ColoredBox(color: dividerColor)),
@@ -389,6 +674,7 @@ class _DiffViewState extends State<DiffView> {
                   hOffset: _hx,
                   // A context line appears on both sides; highlight it once.
                   marks: rk == null || rk == lk ? null : search.marksFor(rk),
+                  textSelection: _selFor(i, Side.right),
                 ),
               ),
             ],
@@ -397,7 +683,7 @@ class _DiffViewState extends State<DiffView> {
     }
 
     final list = ListenableBuilder(
-      listenable: Listenable.merge([widget.selection, widget.search]),
+      listenable: Listenable.merge([widget.selection, widget.search, _selVersion]),
       builder: (context, _) => ListView.builder(
         controller: widget.controller,
         padding: const EdgeInsets.only(bottom: 280),
@@ -420,6 +706,9 @@ class _DiffViewState extends State<DiffView> {
         _maxHx = math.max(0.0, contentWidth - codeWidth);
         _codeWidth = codeWidth;
         _charWidth = charWidth;
+        _viewWidth = c.maxWidth;
+        _numberWidth = numberWidth;
+        _codeStyle = codeStyle;
         if (_hx.value > _maxHx) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _hx.value = math.min(_hx.value, _maxHx));
         }
@@ -465,13 +754,36 @@ class _DiffViewState extends State<DiffView> {
       },
     );
 
-    return Listener(
-      onPointerSignal: _onPointerSignal,
-      onPointerPanZoomUpdate: _onPanZoom,
-      onPointerMove: _onPointerMove,
-      onPointerUp: _endDrag,
-      onPointerCancel: _endDrag,
-      child: ColoredBox(color: context.diffTheme.codeBg, child: body),
+    return Focus(
+      focusNode: _focus,
+      onKeyEvent: _onKey,
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerSignal: _onPointerSignal,
+        onPointerPanZoomUpdate: _onPanZoom,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _endDrag,
+        onPointerCancel: _endDrag,
+        child: ColoredBox(color: context.diffTheme.codeBg, child: body),
+      ),
     );
+  }
+}
+
+/// Anchor (where the press started) and focus (where the pointer is) of a
+/// text selection on one side of the diff.
+class _TextSel {
+  const _TextSel(this.side, this.anchorRow, this.anchorCol, this.focusRow, this.focusCol);
+  final Side side;
+  final int anchorRow, anchorCol, focusRow, focusCol;
+
+  bool get isEmpty => anchorRow == focusRow && anchorCol == focusCol;
+
+  _TextSel withFocus(int row, int col) => _TextSel(side, anchorRow, anchorCol, row, col);
+
+  /// (startRow, startCol, endRow, endCol) in document order.
+  (int, int, int, int) get ordered {
+    final forward = anchorRow < focusRow || (anchorRow == focusRow && anchorCol <= focusCol);
+    return forward ? (anchorRow, anchorCol, focusRow, focusCol) : (focusRow, focusCol, anchorRow, anchorCol);
   }
 }

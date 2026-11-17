@@ -4,6 +4,7 @@ import '../../app_scope.dart';
 import '../../diff/diff_layout.dart';
 import '../common/glyphs.dart';
 import 'comment_callbacks.dart';
+import '../../state/code_selection.dart';
 import '../../state/diff_search.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
@@ -19,6 +20,7 @@ class DiffPane extends StatefulWidget {
     required this.showName,
     required this.callbacks,
     required this.search,
+    required this.codeSelection,
   });
 
   final String patchId;
@@ -27,6 +29,7 @@ class DiffPane extends StatefulWidget {
   final bool showName;
   final CommentCallbacks callbacks;
   final DiffSearchController search;
+  final CodeSelection codeSelection;
 
   @override
   State<DiffPane> createState() => _DiffPaneState();
@@ -199,6 +202,7 @@ class _DiffPaneState extends State<DiffPane> {
                   controller: _scroll,
                   callbacks: widget.callbacks,
                   search: widget.search,
+                  codeSelection: widget.codeSelection,
                 ),
         ),
       ],

@@ -28,6 +28,9 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
   - Vista **unificada** o **dividida** (split).
   - **Búsqueda** con `Ctrl+F` en el código de los patches visibles: resalta todas las coincidencias, `Enter` /
     `Shift+Enter` (o `F3` / `Shift+F3`) van a la siguiente / anterior, `Aa` distingue mayúsculas, `Esc` cierra.
+  - **Seleccionar y copiar código**: arrastrar sobre el código selecciona texto (también entre líneas; en la
+    vista dividida, de un solo lado), doble clic selecciona una palabra y triple clic la línea. `Ctrl+C` o clic
+    derecho → *Copiar*. Con una selección de una línea, `Ctrl+F` la usa como búsqueda y salta a esa coincidencia.
   - **Atajos de paneles**: `Ctrl+B` abre/cierra el panel izquierdo (contexto y comentarios) y `Ctrl+L` el derecho
     (notas). Funcionan aunque el foco esté en un editor.
   - **Encabezados de archivo fijos (sticky)**: al hacer scroll el encabezado del archivo actual queda arriba; el

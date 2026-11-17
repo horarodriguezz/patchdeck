@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_settings.dart';
 import 'comment_callbacks.dart';
+import '../../state/code_selection.dart';
 import '../../state/diff_search.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
@@ -18,6 +19,7 @@ class PanesView extends StatefulWidget {
     required this.mode,
     required this.callbacks,
     required this.search,
+    required this.codeSelection,
   });
 
   final WorkspaceController workspace;
@@ -25,6 +27,7 @@ class PanesView extends StatefulWidget {
   final DiffMode mode;
   final CommentCallbacks callbacks;
   final DiffSearchController search;
+  final CodeSelection codeSelection;
 
   @override
   State<PanesView> createState() => _PanesViewState();
@@ -47,6 +50,7 @@ class _PanesViewState extends State<PanesView> {
     showName: multi,
     callbacks: widget.callbacks,
     search: widget.search,
+    codeSelection: widget.codeSelection,
   );
 
   @override

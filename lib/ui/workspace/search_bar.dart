@@ -46,6 +46,12 @@ class _DiffSearchBarState extends State<DiffSearchBar> {
     final s = widget.search;
     if (s.focusRequest != _focusRequest) {
       _focusRequest = s.focusRequest;
+      final prefill = s.prefill;
+      if (prefill != null) {
+        s.prefill = null;
+        _debounce?.cancel();
+        _text.text = prefill;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _focus.requestFocus();
