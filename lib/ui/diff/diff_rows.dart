@@ -15,12 +15,24 @@ class FileHeaderRow extends StatelessWidget {
     required this.collapsed,
     required this.onToggle,
     required this.commentCount,
+    required this.viewed,
+    required this.onViewedChanged,
+    this.sticky = false,
   });
 
   final DiffFile file;
   final bool collapsed;
   final VoidCallback onToggle;
   final int commentCount;
+  final bool viewed;
+  final ValueChanged<bool> onViewedChanged;
+
+  /// Pinned copy drawn over the top of the list: no top spacing, with a shadow.
+  final bool sticky;
+
+  /// Height of the visible header box (the row adds [topGap] above it).
+  static const double boxHeight = DiffMetrics.fileHeader - topGap;
+  static const double topGap = 6;
 
   @override
   Widget build(BuildContext context) {
@@ -33,69 +45,125 @@ class FileHeaderRow extends StatelessWidget {
       FileStatus.copied => ('copiado', const Color(0xFF539BF5)),
       FileStatus.modified => ('', Colors.transparent),
     };
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Material(
-        color: t.fileHeaderBg,
-        shape: Border(
-          top: BorderSide(color: t.border),
-          bottom: BorderSide(color: t.border),
-        ),
-        child: InkWell(
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Icon(
-                  collapsed ? Icons.chevron_right : Icons.expand_more,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          file.displayPath,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
+    final header = Material(
+      color: t.fileHeaderBg,
+      elevation: sticky ? 2 : 0,
+      shape: Border(
+        top: BorderSide(color: t.border),
+        bottom: BorderSide(color: t.border),
+      ),
+      child: InkWell(
+        onTap: onToggle,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              Icon(
+                collapsed ? Icons.chevron_right : Icons.expand_more,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        file.displayPath,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
-                      if (statusText.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: statusColor.withValues(alpha: 0.7)),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(statusText, style: TextStyle(fontSize: 11, color: statusColor)),
+                    ),
+                    if (statusText.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: statusColor.withValues(alpha: 0.7)),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                      ],
+                        child: Text(statusText, style: TextStyle(fontSize: 11, color: statusColor)),
+                      ),
                     ],
+                  ],
+                ),
+              ),
+              if (commentCount > 0) ...[
+                Icon(Icons.chat_bubble_outline, size: 14, color: theme.colorScheme.primary),
+                const SizedBox(width: 3),
+                Text('$commentCount', style: TextStyle(fontSize: 12, color: theme.colorScheme.primary)),
+                const SizedBox(width: 12),
+              ],
+              Text(
+                '+${file.additions}',
+                style: const TextStyle(color: Color(0xFF57AB5A), fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '−${file.deletions}',
+                style: const TextStyle(color: Color(0xFFE5534B), fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 10),
+              _ViewedToggle(viewed: viewed, onChanged: onViewedChanged),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (sticky) return SizedBox(height: boxHeight, child: header);
+    return Padding(
+      padding: const EdgeInsets.only(top: topGap),
+      child: header,
+    );
+  }
+}
+
+/// GitHub-style "Visto" checkbox on the right of a file header.
+class _ViewedToggle extends StatelessWidget {
+  const _ViewedToggle({required this.viewed, required this.onChanged});
+  final bool viewed;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.diffTheme;
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    return Tooltip(
+      message: viewed ? 'Marcar como no visto' : 'Marcar como visto (lo colapsa)',
+      child: InkWell(
+        onTap: () => onChanged(!viewed),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          height: 24,
+          padding: const EdgeInsets.only(left: 2, right: 8),
+          decoration: BoxDecoration(
+            color: viewed ? primary.withValues(alpha: 0.14) : null,
+            border: Border.all(color: viewed ? primary.withValues(alpha: 0.5) : t.border),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: Transform.scale(
+                  scale: 0.75,
+                  child: Checkbox(
+                    value: viewed,
+                    onChanged: (v) => onChanged(v ?? false),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
-                if (commentCount > 0) ...[
-                  Icon(Icons.chat_bubble_outline, size: 14, color: theme.colorScheme.primary),
-                  const SizedBox(width: 3),
-                  Text('$commentCount', style: TextStyle(fontSize: 12, color: theme.colorScheme.primary)),
-                  const SizedBox(width: 12),
-                ],
-                Text(
-                  '+${file.additions}',
-                  style: const TextStyle(color: Color(0xFF57AB5A), fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '−${file.deletions}',
-                  style: const TextStyle(color: Color(0xFFE5534B), fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 6),
-              ],
-            ),
+              ),
+              Text(
+                'Visto',
+                style: TextStyle(fontSize: 12, color: viewed ? primary : theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
           ),
         ),
       ),

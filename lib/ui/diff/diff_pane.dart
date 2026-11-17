@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app_scope.dart';
 import '../../diff/diff_layout.dart';
 import 'comment_callbacks.dart';
+import '../../state/diff_search.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
 import 'diff_view.dart';
@@ -16,6 +17,7 @@ class DiffPane extends StatefulWidget {
     required this.selection,
     required this.showName,
     required this.callbacks,
+    required this.search,
   });
 
   final String patchId;
@@ -23,6 +25,7 @@ class DiffPane extends StatefulWidget {
   final SelectionController selection;
   final bool showName;
   final CommentCallbacks callbacks;
+  final DiffSearchController search;
 
   @override
   State<DiffPane> createState() => _DiffPaneState();
@@ -31,14 +34,20 @@ class DiffPane extends StatefulWidget {
 class _DiffPaneState extends State<DiffPane> {
   final ScrollController _scroll = ScrollController();
 
-  /// Scrolls so [key] sits about a third from the top of the viewport.
-  void _scrollTo(DiffLayout layout, LineKey key) {
+  /// Scrolls so [key] sits about a third from the top of the viewport. With
+  /// [ifNeeded] nothing moves when the line is already comfortably in view.
+  void _scrollTo(DiffLayout layout, LineKey key, {bool ifNeeded = false}) {
     if (!mounted || !_scroll.hasClients) return;
     final row = layout.rows.indexWhere(
       (r) => r.kind == RowKind.line && r.file == key.$2 && r.hunk == key.$3 && (r.a == key.$4 || r.b == key.$4),
     );
     if (row < 0) return;
     final pos = _scroll.position;
+    if (ifNeeded) {
+      // Leave room for the pinned file header at the top.
+      final top = layout.offsets[row], bottom = layout.offsets[row + 1];
+      if (top >= pos.pixels + 48 && bottom <= pos.pixels + pos.viewportDimension - 24) return;
+    }
     final target = (layout.offsets[row] - pos.viewportDimension / 3).clamp(0.0, pos.maxScrollExtent);
     _scroll.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
   }
@@ -64,7 +73,10 @@ class _DiffPaneState extends State<DiffPane> {
     final parsed = model.parsed;
     final muted = theme.colorScheme.onSurfaceVariant;
     final reveal = ws.takeReveal(widget.patchId);
-    if (reveal != null) WidgetsBinding.instance.addPostFrameCallback((_) => _scrollTo(layout, reveal));
+    if (reveal != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollTo(layout, reveal.$1, ifNeeded: reveal.$2));
+    }
+    final viewed = ws.viewedCount(widget.patchId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -107,6 +119,23 @@ class _DiffPaneState extends State<DiffPane> {
                 style: const TextStyle(color: Color(0xFFE5534B), fontSize: 12, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
+              if (parsed.files.isNotEmpty) ...[
+                Tooltip(
+                  message: 'Archivos marcados como vistos',
+                  child: Row(
+                    children: [
+                      Icon(
+                        viewed == parsed.files.length ? Icons.check_circle : Icons.check_circle_outline,
+                        size: 14,
+                        color: viewed == parsed.files.length ? theme.colorScheme.primary : muted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text('$viewed/${parsed.files.length} vistos', style: TextStyle(color: muted, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
               if (parsed.files.isNotEmpty)
                 PopupMenuButton<int>(
                   tooltip: 'Ir a archivo',
@@ -172,6 +201,7 @@ class _DiffPaneState extends State<DiffPane> {
                   metrics: metrics,
                   controller: _scroll,
                   callbacks: widget.callbacks,
+                  search: widget.search,
                 ),
         ),
       ],

@@ -26,6 +26,14 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
     dividida ambos lados se mueven juntos; los encabezados de archivo y hunk quedan fijos. Al llegar al borde,
     Shift+rueda pasa al siguiente patch (sobre la barra superior de un patch, siempre mueve entre patches).
   - Vista **unificada** o **dividida** (split).
+  - **Búsqueda** con `Ctrl+F` en el código de los patches visibles: resalta todas las coincidencias, `Enter` /
+    `Shift+Enter` (o `F3` / `Shift+F3`) van a la siguiente / anterior, `Aa` distingue mayúsculas, `Esc` cierra.
+  - **Atajos de paneles**: `Ctrl+B` abre/cierra el panel izquierdo (contexto y comentarios) y `Ctrl+L` el derecho
+    (notas). Funcionan aunque el foco esté en un editor.
+  - **Encabezados de archivo fijos (sticky)**: al hacer scroll el encabezado del archivo actual queda arriba; el
+    siguiente lo empuja.
+  - **Marcar archivos como vistos**: checkbox *Visto* en cada encabezado (como en GitHub). Al marcarlo el archivo se
+    colapsa; se guarda con la review y la barra del patch muestra el progreso (`3/5 vistos`).
   - **Resaltado de sintaxis** para JavaScript / TypeScript / CSS (SCSS/LESS básico).
   - Soporta `git diff`, `git show`, `git format-patch` (muestra el mensaje del commit) y `diff -u`; renombres,
     archivos nuevos/eliminados y binarios.

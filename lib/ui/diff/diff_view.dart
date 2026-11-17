@@ -11,6 +11,7 @@ import '../../models/app_settings.dart';
 import '../../models/label.dart';
 import '../../models/review.dart';
 import 'comment_callbacks.dart';
+import '../../state/diff_search.dart';
 import '../../state/patch_model.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
@@ -37,6 +38,7 @@ class DiffView extends StatefulWidget {
     required this.metrics,
     required this.controller,
     required this.callbacks,
+    required this.search,
   });
 
   final WorkspaceController workspace;
@@ -47,6 +49,7 @@ class DiffView extends StatefulWidget {
   final DiffMetrics metrics;
   final ScrollController controller;
   final CommentCallbacks callbacks;
+  final DiffSearchController search;
 
   @override
   State<DiffView> createState() => _DiffViewState();
@@ -57,6 +60,8 @@ class _DiffViewState extends State<DiffView> {
   /// sides read the same value, so they always scroll together).
   final ValueNotifier<double> _hx = ValueNotifier(0);
   double _maxHx = 0;
+  double _codeWidth = 0;
+  double _charWidth = 8;
   Timer? _autoScroll;
   double _autoDir = 0;
   Offset? _lastPointer;
@@ -65,11 +70,114 @@ class _DiffViewState extends State<DiffView> {
   int _cacheVersion = -1;
   Map<String, int> _commentsPerPath = const {};
 
+  SearchMatch? _lastMatch;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.search.addListener(_onSearch);
+  }
+
+  @override
+  void didUpdateWidget(DiffView old) {
+    super.didUpdateWidget(old);
+    if (old.search != widget.search) {
+      old.search.removeListener(_onSearch);
+      widget.search.addListener(_onSearch);
+    }
+  }
+
   @override
   void dispose() {
+    widget.search.removeListener(_onSearch);
     _autoScroll?.cancel();
     _hx.dispose();
     super.dispose();
+  }
+
+  /// Scrolls the code horizontally so the active search match is visible.
+  void _onSearch() {
+    final m = widget.search.currentMatch;
+    if (m == null || identical(m, _lastMatch) || m.key.$1 != widget.model.id) {
+      _lastMatch = m;
+      return;
+    }
+    _lastMatch = m;
+    if (_maxHx <= 0 || _codeWidth <= 0) return;
+    final left = m.start * _charWidth;
+    final right = m.end * _charWidth;
+    const margin = 48.0;
+    var x = _hx.value;
+    if (left < x + margin) {
+      x = left - margin;
+    } else if (right > x + _codeWidth - margin) {
+      x = right - _codeWidth + margin;
+    }
+    _hx.value = x.clamp(0.0, _maxHx);
+  }
+
+  // ---------------------------------------------------------- file headers
+
+  /// Toggling from the pinned header jumps back to the file's top, so the
+  /// user doesn't lose their place when a long file collapses under them.
+  void _afterHeaderChange(int file, bool fromSticky) {
+    if (!fromSticky) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = widget.controller;
+      if (!mounted || !c.hasClients) return;
+      final l = widget.layout;
+      if (file >= l.fileRow.length) return;
+      c.jumpTo(l.offsets[l.fileRow[file]].clamp(0.0, c.position.maxScrollExtent));
+    });
+  }
+
+  Widget _fileHeader(int f, Map<String, int> counts, Set<int> collapsed, {bool sticky = false}) {
+    final file = widget.model.parsed.files[f];
+    final pid = widget.model.id;
+    final ws = widget.workspace;
+    return FileHeaderRow(
+      file: file,
+      sticky: sticky,
+      collapsed: collapsed.contains(f),
+      commentCount: counts[file.path] ?? 0,
+      viewed: ws.isViewed(pid, f),
+      onToggle: () {
+        ws.toggleFile(pid, f);
+        _afterHeaderChange(f, sticky);
+      },
+      onViewedChanged: (v) {
+        ws.setViewed(pid, f, v);
+        _afterHeaderChange(f, sticky);
+      },
+    );
+  }
+
+  /// The header of the file at the top of the viewport, pinned while its
+  /// own row is scrolled out; the next header pushes it up.
+  Widget _stickyHeader(Map<String, int> counts, Set<int> collapsed) {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final c = widget.controller;
+        final layout = widget.layout;
+        if (!c.hasClients || layout.rows.isEmpty) return const SizedBox.shrink();
+        final offset = c.offset;
+        final row = layout.indexAt(offset);
+        if (row < 0) return const SizedBox.shrink();
+        final f = layout.rows[row].file;
+        if (f < 0) return const SizedBox.shrink();
+        final headerTop = layout.offsets[layout.fileRow[f]] + FileHeaderRow.topGap;
+        if (offset <= headerTop) return const SizedBox.shrink();
+        var dy = 0.0;
+        if (f + 1 < layout.fileRow.length) {
+          final nextTop = layout.offsets[layout.fileRow[f + 1]] + FileHeaderRow.topGap;
+          dy = math.min(0.0, nextTop - offset - FileHeaderRow.boxHeight);
+        }
+        return ClipRect(
+          child: Transform.translate(offset: Offset(0, dy), child: _fileHeader(f, counts, collapsed, sticky: true)),
+        );
+      },
+    );
   }
 
   // ------------------------------------------------------- horizontal scroll
@@ -198,6 +306,7 @@ class _DiffViewState extends State<DiffView> {
     final unified = widget.mode == DiffMode.unified;
     final codeIndent = unified ? numberWidth * 2 + 36 : numberWidth + 36;
     final dividerColor = context.diffTheme.border;
+    final search = widget.search;
 
     Widget buildRow(BuildContext context, int i) {
       final row = layout.rows[i];
@@ -205,13 +314,7 @@ class _DiffViewState extends State<DiffView> {
         case RowKind.preamble:
           return PreambleRow(text: widget.model.parsed.preamble, style: codeStyle);
         case RowKind.fileHeader:
-          final file = widget.model.parsed.files[row.file];
-          return FileHeaderRow(
-            file: file,
-            collapsed: collapsed.contains(row.file),
-            commentCount: counts[file.path] ?? 0,
-            onToggle: () => widget.workspace.toggleFile(widget.model.id, row.file),
-          );
+          return _fileHeader(row.file, counts, collapsed);
         case RowKind.notice:
           return NoticeRow(file: widget.model.parsed.files[row.file]);
         case RowKind.hunk:
@@ -248,6 +351,7 @@ class _DiffViewState extends State<DiffView> {
               codeStyle: codeStyle,
               onGutterDown: (s) => _beginSelection(i, s),
               hOffset: _hx,
+              marks: search.marksFor(key),
             );
           }
           final lk = row.a >= 0 ? (pid, row.file, row.hunk, row.a) : null;
@@ -267,6 +371,7 @@ class _DiffViewState extends State<DiffView> {
                   codeStyle: codeStyle,
                   onGutterDown: (s) => _beginSelection(i, s),
                   hOffset: _hx,
+                  marks: lk == null ? null : search.marksFor(lk),
                 ),
               ),
               SizedBox(width: 1, child: ColoredBox(color: dividerColor)),
@@ -282,6 +387,8 @@ class _DiffViewState extends State<DiffView> {
                   codeStyle: codeStyle,
                   onGutterDown: (s) => _beginSelection(i, s),
                   hOffset: _hx,
+                  // A context line appears on both sides; highlight it once.
+                  marks: rk == null || rk == lk ? null : search.marksFor(rk),
                 ),
               ),
             ],
@@ -290,7 +397,7 @@ class _DiffViewState extends State<DiffView> {
     }
 
     final list = ListenableBuilder(
-      listenable: widget.selection,
+      listenable: Listenable.merge([widget.selection, widget.search]),
       builder: (context, _) => ListView.builder(
         controller: widget.controller,
         padding: const EdgeInsets.only(bottom: 280),
@@ -311,6 +418,8 @@ class _DiffViewState extends State<DiffView> {
         final codeWidth = (unified ? c.maxWidth : (c.maxWidth - 1) / 2) - gutter;
         final contentWidth = math.min(layout.maxLineChars, 2000) * charWidth + 32;
         _maxHx = math.max(0.0, contentWidth - codeWidth);
+        _codeWidth = codeWidth;
+        _charWidth = charWidth;
         if (_hx.value > _maxHx) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _hx.value = math.min(_hx.value, _maxHx));
         }
@@ -319,7 +428,15 @@ class _DiffViewState extends State<DiffView> {
             Positioned.fill(
               child: Scrollbar(
                 controller: widget.controller,
-                child: ScrollConfiguration(behavior: noAutoBars, child: list),
+                // The pinned header sits under the scrollbar thumb.
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ScrollConfiguration(behavior: noAutoBars, child: list),
+                    ),
+                    Positioned(top: 0, left: 0, right: 0, child: _stickyHeader(counts, collapsed)),
+                  ],
+                ),
               ),
             ),
             if (_maxHx > 0)

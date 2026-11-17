@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../diff/diff_layout.dart';
 import '../../diff/diff_models.dart';
 import '../../theme/diff_theme.dart';
+import '../../state/diff_search.dart';
 import 'code_text.dart';
 
 typedef GutterDown = void Function(Side side);
@@ -26,7 +27,11 @@ class LineCell extends StatefulWidget {
     required this.codeStyle,
     required this.onGutterDown,
     required this.hOffset,
+    this.marks,
   });
+
+  /// Search matches to highlight on this line.
+  final List<SearchMark>? marks;
 
   /// Horizontal scroll of the code column (shared by both split sides).
   final ValueListenable<double> hOffset;
@@ -135,7 +140,12 @@ class _LineCellState extends State<LineCell> {
                           minWidth: 0,
                           maxWidth: double.infinity,
                           child: RichText(
-                            text: buildCodeSpan(line, widget.codeStyle.copyWith(color: t.codeFg), t.tokenColors),
+                            text: buildCodeSpan(
+                              line,
+                              widget.codeStyle.copyWith(color: t.codeFg),
+                              t.tokenColors,
+                              marks: widget.marks,
+                            ),
                             maxLines: 1,
                             softWrap: false,
                           ),

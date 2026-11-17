@@ -119,8 +119,10 @@ class Review {
     this.notesMarkdown = '',
     List<PatchEntry>? patches,
     List<ReviewComment>? comments,
+    Set<String>? viewedFiles,
   }) : patches = patches ?? [],
-       comments = comments ?? [];
+       comments = comments ?? [],
+       viewedFiles = viewedFiles ?? {};
 
   final String id;
   String title;
@@ -130,6 +132,11 @@ class Review {
   String notesMarkdown;
   final List<PatchEntry> patches;
   final List<ReviewComment> comments;
+
+  /// Files marked as "visto", keyed by [viewedKey] (`patchId|path`).
+  final Set<String> viewedFiles;
+
+  static String viewedKey(String patchId, String path) => '$patchId|$path';
 
   ReviewSummary get summary => ReviewSummary(
     id: id,
@@ -150,6 +157,7 @@ class Review {
     'notes': notesMarkdown,
     'patches': [for (final p in patches) p.toJson()],
     'comments': [for (final c in comments) c.toJson()],
+    if (viewedFiles.isNotEmpty) 'viewed': viewedFiles.toList(),
   };
 
   factory Review.fromJson(Map<String, dynamic> j) => Review(
@@ -165,6 +173,7 @@ class Review {
     comments: [
       for (final c in (j['comments'] as List? ?? const [])) ReviewComment.fromJson((c as Map).cast<String, dynamic>()),
     ],
+    viewedFiles: {for (final v in (j['viewed'] as List? ?? const [])) v as String},
   );
 }
 

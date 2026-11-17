@@ -31,6 +31,7 @@ class WorkspaceController extends ChangeNotifier {
   final Map<String, Future<void>> _parsing = {};
   final List<String> _visible = [];
   final Map<String, Set<int>> _collapsed = {};
+  final Set<String> _collapsedInit = {};
   final Map<String, _LayoutCacheEntry> _layoutCache = {};
   int _commentsVersion = 0;
   Timer? _saveTimer;
@@ -44,6 +45,7 @@ class WorkspaceController extends ChangeNotifier {
 
   /// A line a pane should scroll to on its next build (see [reveal]).
   LineKey? _pendingReveal;
+  bool _pendingRevealIfNeeded = false;
 
   // ---------------------------------------------------------------- patches
 
@@ -64,6 +66,14 @@ class WorkspaceController extends ChangeNotifier {
       if (current == null) return;
       _models[p.id] = PatchModel(current, parsed);
       _parsing.remove(p.id);
+      // Files already marked as viewed start collapsed (GitHub behaviour).
+      if (!_collapsedInit.contains(p.id)) {
+        _collapsedInit.add(p.id);
+        final s = _collapsed.putIfAbsent(p.id, () => {});
+        for (var f = 0; f < parsed.files.length; f++) {
+          if (review.viewedFiles.contains(Review.viewedKey(p.id, parsed.files[f].path))) s.add(f);
+        }
+      }
       _layoutCache.remove(p.id);
       notifyListeners();
     });
@@ -110,6 +120,7 @@ class WorkspaceController extends ChangeNotifier {
     _collapsed.remove(id);
     _layoutCache.remove(id);
     _visible.remove(id);
+    review.viewedFiles.removeWhere((k) => k.startsWith('$id|'));
     if (_visible.isEmpty && review.patches.isNotEmpty) _visible.add(review.patches.first.id);
     // Drop anchors pointing at the removed patch; drop comments left empty.
     for (var i = review.comments.length - 1; i >= 0; i--) {
@@ -171,6 +182,37 @@ class WorkspaceController extends ChangeNotifier {
     _collapsed[patchId] = collapsed ? {for (var i = 0; i < m.parsed.files.length; i++) i} : {};
     _layoutCache.remove(patchId);
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------- viewed
+
+  bool isViewed(String patchId, int file) {
+    final m = _models[patchId];
+    if (m == null || file < 0 || file >= m.parsed.files.length) return false;
+    return review.viewedFiles.contains(Review.viewedKey(patchId, m.parsed.files[file].path));
+  }
+
+  int viewedCount(String patchId) {
+    final m = _models[patchId];
+    if (m == null) return 0;
+    var n = 0;
+    for (final f in m.parsed.files) {
+      if (review.viewedFiles.contains(Review.viewedKey(patchId, f.path))) n++;
+    }
+    return n;
+  }
+
+  /// Marking a file as viewed collapses it; unmarking expands it again.
+  void setViewed(String patchId, int file, bool viewed) {
+    final m = _models[patchId];
+    if (m == null || file < 0 || file >= m.parsed.files.length) return;
+    final key = Review.viewedKey(patchId, m.parsed.files[file].path);
+    final changed = viewed ? review.viewedFiles.add(key) : review.viewedFiles.remove(key);
+    if (!changed) return;
+    final s = _collapsed.putIfAbsent(patchId, () => {});
+    viewed ? s.add(file) : s.remove(file);
+    _layoutCache.remove(patchId);
+    _changed();
   }
 
   /// Cached: rebuilt only when the mode, font, collapsed set or comments change.
@@ -327,8 +369,8 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   /// Makes the line's patch visible, expands its file and asks the pane to
-  /// scroll there.
-  void reveal(LineKey k) {
+  /// scroll there. With [ifNeeded] the pane only scrolls if the line is off screen.
+  void reveal(LineKey k, {bool ifNeeded = false}) {
     if (!_visible.contains(k.$1)) {
       _visible
         ..clear()
@@ -336,14 +378,15 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_collapsed[k.$1]?.remove(k.$2) ?? false) _layoutCache.remove(k.$1);
     _pendingReveal = k;
+    _pendingRevealIfNeeded = ifNeeded;
     notifyListeners();
   }
 
-  LineKey? takeReveal(String patchId) {
+  (LineKey, bool)? takeReveal(String patchId) {
     final k = _pendingReveal;
     if (k == null || k.$1 != patchId) return null;
     _pendingReveal = null;
-    return k;
+    return (k, _pendingRevealIfNeeded);
   }
 
   void deleteComment(String id) {

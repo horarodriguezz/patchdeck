@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../app_scope.dart';
 import '../../models/app_settings.dart';
 import '../../models/review.dart';
+import '../../state/diff_search.dart';
 import '../../state/review_export.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
@@ -19,6 +20,7 @@ import '../shell/title_bar.dart';
 import 'add_patch_dialog.dart';
 import 'left_panel.dart';
 import 'patch_tab_bar.dart';
+import 'search_bar.dart';
 import 'side_panel.dart';
 
 class WorkspaceScreen extends StatefulWidget {
@@ -32,6 +34,7 @@ class WorkspaceScreen extends StatefulWidget {
 class _WorkspaceScreenState extends State<WorkspaceScreen> {
   WorkspaceController? _ws;
   final SelectionController _selection = SelectionController();
+  final DiffSearchController _search = DiffSearchController();
   bool _notFound = false;
   bool _finalizing = false;
   late final AppScope _scope = AppScope.of(context);
@@ -58,7 +61,41 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       onSaved: scope.reviews.refresh,
     );
     scope.settings.addListener(_onSettings);
+    ws.addListener(_onWorkspace);
     setState(() => _ws = ws);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  /// Keeps search results in sync with the visible patches.
+  void _onWorkspace() => _search.sync(_ws!);
+
+  /// Global workspace shortcuts. A keyboard handler (rather than Shortcuts)
+  /// so they work wherever the focus is, including inside the text editors.
+  bool _onKey(KeyEvent e) {
+    if (e is! KeyDownEvent || _ws == null || _finalizing || !mounted) return false;
+    final hk = HardwareKeyboard.instance;
+    if (!hk.isControlPressed || hk.isShiftPressed || hk.isAltPressed || hk.isMetaPressed) return false;
+    // Not while a dialog or menu is on top.
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+    final ws = _ws!;
+    switch (e.logicalKey) {
+      case LogicalKeyboardKey.keyF:
+        if (ws.patches.isEmpty) return false;
+        _search.show();
+        _search.sync(ws);
+      case LogicalKeyboardKey.keyB:
+        ws.toggleLeft();
+      case LogicalKeyboardKey.keyL:
+        ws.toggleRight();
+      default:
+        return false;
+    }
+    return true;
   }
 
   void _onSettings() => _ws?.setHighlight(_scope.settings.settings.syntaxHighlight);
@@ -66,13 +103,16 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   @override
   void dispose() {
     final scope = _scope;
+    HardwareKeyboard.instance.removeHandler(_onKey);
     scope.settings.removeListener(_onSettings);
     final ws = _ws;
     if (ws != null) {
+      ws.removeListener(_onWorkspace);
       ws.flush().then((_) => scope.reviews.refresh());
       ws.dispose();
     }
     _selection.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -231,18 +271,30 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     ),
                     const SizedBox(width: 6),
                     TitleBarIconButton(
+                      tooltip: 'Buscar (Ctrl+F)',
+                      icon: const Icon(Icons.search),
+                      onPressed: ws.patches.isEmpty
+                          ? null
+                          : () {
+                              _search.show();
+                              _search.sync(ws);
+                            },
+                    ),
+                    TitleBarIconButton(
                       tooltip: 'Copiar resumen (Markdown)',
                       icon: const Icon(Icons.ios_share),
                       onPressed: _copyMarkdown,
                     ),
                     TitleBarIconButton(
-                      tooltip: ws.leftOpen ? 'Ocultar contexto y comentarios' : 'Mostrar contexto y comentarios',
+                      tooltip: ws.leftOpen
+                          ? 'Ocultar contexto y comentarios (Ctrl+B)'
+                          : 'Mostrar contexto y comentarios (Ctrl+B)',
                       selected: ws.leftOpen,
                       icon: Icon(ws.leftOpen ? Icons.forum : Icons.forum_outlined),
                       onPressed: ws.toggleLeft,
                     ),
                     TitleBarIconButton(
-                      tooltip: ws.rightOpen ? 'Ocultar notas' : 'Mostrar notas',
+                      tooltip: ws.rightOpen ? 'Ocultar notas (Ctrl+L)' : 'Mostrar notas (Ctrl+L)',
                       selected: ws.rightOpen,
                       icon: Icon(ws.rightOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined),
                       onPressed: ws.toggleRight,
@@ -300,13 +352,25 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PatchTabBar(workspace: ws, onAdd: _addPatch, onRename: _renamePatch, onDelete: _deletePatch),
+        ListenableBuilder(
+          listenable: _search,
+          builder: (context, _) => _search.isOpen && ws.patches.isNotEmpty
+              ? DiffSearchBar(search: _search, workspace: ws)
+              : const SizedBox.shrink(),
+        ),
         Expanded(
           child: ws.patches.isEmpty
               ? _NoPatches(onAdd: _addPatch)
               : Stack(
                   children: [
                     Positioned.fill(
-                      child: PanesView(workspace: ws, selection: _selection, mode: mode, callbacks: _callbacks()),
+                      child: PanesView(
+                        workspace: ws,
+                        selection: _selection,
+                        mode: mode,
+                        callbacks: _callbacks(),
+                        search: _search,
+                      ),
                     ),
                     ListenableBuilder(
                       listenable: _selection,
