@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../state/diff_search.dart';
 import '../../state/workspace_controller.dart';
+import '../common/glyphs.dart';
 
 /// Slim Ctrl+F bar above the diff panes.
 ///
@@ -112,7 +113,10 @@ class _DiffSearchBarState extends State<DiffSearchBar> {
                 ? ''
                 : n == 0
                 ? 'Sin resultados'
-                : '${s.current < 0 ? '–' : s.current + 1} de $n${s.truncated ? '+' : ''}';
+                : s.current < 0
+                ? '$n${s.truncated ? '+' : ''} ${n == 1 ? 'resultado' : 'resultados'}'
+                : '${s.current + 1} de $n${s.truncated ? '+' : ''}';
+            final canStep = n > 0 || (_debounce?.isActive ?? false);
             return Row(
               children: [
                 Icon(Icons.search, size: 18, color: muted),
@@ -134,17 +138,7 @@ class _DiffSearchBarState extends State<DiffSearchBar> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 110,
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: n == 0 && s.query.isNotEmpty ? theme.colorScheme.error : muted,
-                    ),
-                  ),
-                ),
+                const SizedBox(width: 6),
                 _BarButton(
                   tooltip: 'Coincidir mayúsculas',
                   selected: s.caseSensitive,
@@ -154,18 +148,28 @@ class _DiffSearchBarState extends State<DiffSearchBar> {
                   },
                   child: const Text('Aa', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
+                const SizedBox(width: 10),
                 _BarButton(
                   tooltip: 'Anterior (Shift+Enter)',
-                  onPressed: n == 0 && !(_debounce?.isActive ?? false) ? null : () => _go(-1),
-                  child: const Icon(Icons.keyboard_arrow_up, size: 18),
+                  onPressed: canStep ? () => _go(-1) : null,
+                  child: const Glyph(GlyphKind.chevronUp, size: 18),
                 ),
                 _BarButton(
                   tooltip: 'Siguiente (Enter)',
-                  onPressed: n == 0 && !(_debounce?.isActive ?? false) ? null : () => _go(1),
-                  child: const Icon(Icons.keyboard_arrow_down, size: 18),
+                  onPressed: canStep ? () => _go(1) : null,
+                  child: const Glyph(GlyphKind.chevronDown, size: 18),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: n == 0 && s.query.isNotEmpty ? theme.colorScheme.error : muted,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
                 const Spacer(),
-                _BarButton(tooltip: 'Cerrar (Esc)', onPressed: _close, child: const Icon(Icons.close, size: 16)),
+                _BarButton(tooltip: 'Cerrar (Esc)', onPressed: _close, child: const Glyph(GlyphKind.close, size: 16)),
               ],
             );
           },

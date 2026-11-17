@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_scope.dart';
 import '../../diff/diff_layout.dart';
+import '../common/glyphs.dart';
 import 'comment_callbacks.dart';
 import '../../state/diff_search.dart';
 import '../../state/selection_controller.dart';
@@ -224,7 +225,7 @@ class _ViewedBadge extends StatelessWidget {
         border: Border.all(color: all ? primary : color, width: 1.4),
         borderRadius: BorderRadius.circular(3),
       ),
-      child: all ? Icon(Icons.check, size: 10, color: Theme.of(context).colorScheme.onPrimary) : null,
+      child: all ? Glyph(GlyphKind.check, size: 11, color: Theme.of(context).colorScheme.onPrimary) : null,
     );
   }
 }
