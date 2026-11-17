@@ -13,11 +13,13 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 - **Barra de título propia, fina** (sin la barra nativa gruesa): arrastrar para mover, doble clic para maximizar,
   botones discretos de minimizar / maximizar / cerrar.
 - **Workspace** por review:
-  - Columna izquierda (colapsable, redimensionable y animada) con dos pestañas:
+  - Columna izquierda (colapsable, redimensionable y animada) con tres pestañas:
     - **Contexto**: Markdown libre, p. ej. la descripción del PR.
     - **Comentarios**: los comentarios de los patches visibles, agrupados por patch y ordenados por posición.
       Clic en uno → el diff salta a esas líneas y lo abre en edición. Cada comentario tiene *copiar*, y cada
       patch un *Copiar todos*.
+    - **Archivos** (`Ctrl+E`): árbol de carpetas y archivos de los patches visibles (carpetas de un solo hijo
+      compactadas), con estado, `+/−`, comentarios y *visto*. Clic en un archivo → el diff salta a él.
   - Columna derecha **Notas** (colapsable y redimensionable): anotaciones libres en Markdown con vista previa.
   - **Varios patches por review**, cada uno en su pestaña, nombrados `A`, `B`, `C`, … `Z`, `AA`… (renombrables).
   - **Varios patches lado a lado**: `Ctrl+clic` en una pestaña (o menú ▾ → *Ver lado a lado*). Con dos patches
@@ -31,8 +33,10 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
   - **Seleccionar y copiar código**: arrastrar sobre el código selecciona texto (también entre líneas; en la
     vista dividida, de un solo lado), doble clic selecciona una palabra y triple clic la línea. `Ctrl+C` o clic
     derecho → *Copiar*. Con una selección de una línea, `Ctrl+F` la usa como búsqueda y salta a esa coincidencia.
-  - **Atajos de paneles**: `Ctrl+B` abre/cierra el panel izquierdo (contexto y comentarios) y `Ctrl+L` el derecho
-    (notas). Funcionan aunque el foco esté en un editor.
+    `Ctrl+A` selecciona todo el código del archivo enfocado (el último en que se hizo clic).
+  - **Atajos de paneles**: `Ctrl+L` abre/cierra el panel izquierdo, `Ctrl+R` el derecho (notas) y `Ctrl+E` abre
+    el izquierdo directamente en *Archivos* (otra vez lo cierra). Funcionan aunque el foco esté en un editor.
+  - **Copiar ruta**: el icono junto al nombre de cada archivo copia su ruta relativa.
   - **Encabezados de archivo fijos (sticky)**: al hacer scroll el encabezado del archivo actual queda arriba; el
     siguiente lo empuja.
   - **Marcar archivos como vistos**: checkbox *Visto* en cada encabezado (como en GitHub). Al marcarlo el archivo se
@@ -44,7 +48,9 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
   - clic en el `+` de una línea;
   - arrastrar el `+` para seleccionar un rango (con auto-scroll en los bordes);
   - `Ctrl+clic` / `Ctrl+arrastrar` para agregar (o quitar) líneas sueltas, **incluso de otros archivos y otros patches**;
-  - `Shift+clic` extiende desde la última línea marcada.
+  - `Shift+clic` extiende desde la última línea marcada;
+  - el botón de comentario del encabezado de un archivo selecciona el **archivo completo** (con `Ctrl+clic` se
+    suma a la selección, así un comentario puede combinar archivos completos y líneas sueltas).
 - **Comentarios**: al seleccionar aparece el editor; primero el input de **etiquetas** (escribe para filtrar,
   `Enter` agrega, `Backspace` quita), luego el texto. `Ctrl+Enter` guarda, `Esc` cancela. Un comentario aplica a
   todas las líneas seleccionadas de todos los archivos. Clic en un comentario para editarlo.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app_scope.dart';
+import '../../diff/diff_layout.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
 import 'label_picker.dart';
@@ -65,7 +66,12 @@ class _CommentComposerState extends State<CommentComposer> {
         final files = <(String, int)>{for (final k in keys) (k.$1, k.$2)}.length;
         final patches = <String>{for (final k in keys) k.$1}.length;
         final editing = widget.selection.editingCommentId != null;
-        var scope = '${keys.length} ${keys.length == 1 ? 'línea' : 'líneas'}';
+        final wholeFiles = keys.where((k) => k.isFile).length;
+        final lines = keys.length - wholeFiles;
+        var scope = [
+          if (lines > 0) '$lines ${lines == 1 ? 'línea' : 'líneas'}',
+          if (wholeFiles > 0) '$wholeFiles ${wholeFiles == 1 ? 'archivo completo' : 'archivos completos'}',
+        ].join(' + ');
         if (files > 1) scope += ' en $files archivos';
         if (patches > 1) scope += ' de $patches patches';
 

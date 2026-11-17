@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:patchdeck/app.dart';
 import 'package:patchdeck/app_scope.dart';
 import 'package:patchdeck/diff/diff_models.dart';
+import 'package:patchdeck/diff/diff_parser.dart';
 import 'package:patchdeck/models/app_settings.dart';
 import 'package:patchdeck/models/review.dart';
 import 'package:patchdeck/services/app_paths.dart';
@@ -19,6 +20,7 @@ import 'package:patchdeck/state/workspace_controller.dart';
 import 'package:patchdeck/ui/diff/code_text.dart';
 import 'package:patchdeck/ui/diff/diff_rows.dart';
 import 'package:patchdeck/ui/diff/diff_view.dart';
+import 'package:patchdeck/ui/workspace/files_tab.dart';
 import 'package:patchdeck/ui/workspace/search_bar.dart';
 
 final _raw = File('test/fixtures/sample.patch').readAsStringSync();
@@ -141,25 +143,38 @@ void main() {
     expect(current.style!.backgroundColor, isNotNull);
   });
 
-  testWidgets('Ctrl+F searches, Ctrl+B / Ctrl+L toggle panels, headers stick and can be marked viewed', (tester) async {
+  testWidgets('Ctrl+F searches, Ctrl+L / Ctrl+R / Ctrl+E toggle panels, headers stick and can be marked viewed', (
+    tester,
+  ) async {
     final shell = await _pumpWorkspace(tester, const Size(1440, 480));
     expect(find.byType(FileHeaderRow), findsWidgets);
 
+    Future<void> ctrl(LogicalKeyboardKey k) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(k);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
     // Panels.
     expect(find.text('Notas'), findsWidgets);
-    final notesBefore = find.byTooltip('Ocultar notas (Ctrl+L)').evaluate().length;
-    expect(notesBefore, 1);
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Mostrar notas (Ctrl+L)'), findsOneWidget);
-    expect(find.byTooltip('Mostrar contexto y comentarios (Ctrl+B)'), findsOneWidget);
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Ocultar contexto y comentarios (Ctrl+B)'), findsOneWidget);
+    expect(find.byTooltip('Ocultar notas (Ctrl+R)'), findsOneWidget);
+    await ctrl(LogicalKeyboardKey.keyR);
+    expect(find.byTooltip('Mostrar notas (Ctrl+R)'), findsOneWidget);
+    expect(find.byTooltip('Mostrar contexto, comentarios y archivos (Ctrl+L)'), findsOneWidget);
+    await ctrl(LogicalKeyboardKey.keyL);
+    expect(find.byTooltip('Ocultar panel izquierdo (Ctrl+L)'), findsOneWidget);
+    await ctrl(LogicalKeyboardKey.keyL);
+    expect(find.byTooltip('Mostrar contexto, comentarios y archivos (Ctrl+L)'), findsOneWidget);
+
+    // Ctrl+E opens the left panel straight on the file tree; again closes it.
+    await ctrl(LogicalKeyboardKey.keyE);
+    expect(find.byType(FilesTab), findsOneWidget);
+    expect(find.text('greet.ts'), findsOneWidget);
+    expect(find.text('src'), findsOneWidget);
+    await ctrl(LogicalKeyboardKey.keyE);
+    expect(find.byTooltip('Mostrar contexto, comentarios y archivos (Ctrl+L)'), findsOneWidget);
+    await ctrl(LogicalKeyboardKey.keyL);
 
     // Search.
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -271,5 +286,72 @@ void main() {
     final parts = [for (final c in span.children!) (c as TextSpan).text];
     expect(parts, ['a', 'bc', ' ']);
     expect((span.children![1] as TextSpan).style!.backgroundColor, isNotNull);
+  });
+
+  testWidgets('Ctrl+A selects the focused file, paths copy, whole files take comments, the tree jumps to files', (
+    tester,
+  ) async {
+    final shell = await _pumpWorkspace(tester, const Size(1440, 480));
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboard = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    Future<void> ctrl(LogicalKeyboardKey k) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(k);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
+    // Ctrl+A: every line of the clicked file (unified: both sides).
+    final parsed = parsePatch(_raw);
+    final expected = [
+      for (final h in parsed.files.first.hunks)
+        for (final l in h.lines)
+          if (l.kind != LineKind.noNewline) l.text,
+    ].join('\n');
+    final r = tester.getRect(
+      find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText() == '// Greeting helpers'),
+    );
+    await tester.tapAt(Offset(r.left + 30, r.center.dy));
+    await tester.pump();
+    await ctrl(LogicalKeyboardKey.keyA);
+    await ctrl(LogicalKeyboardKey.keyC);
+    expect(clipboard, expected);
+
+    // Copy icon next to the file name copies its relative path.
+    await tester.tap(find.byTooltip('Copiar ruta relativa').first);
+    await tester.pump();
+    expect(clipboard, 'src/greet.ts');
+    await tester.pump(const Duration(seconds: 2));
+
+    // Whole-file comment from the header button.
+    await tester.tap(find.byTooltip('Comentar el archivo completo (Ctrl+clic lo agrega a la selección)').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Comentar 1 archivo completo'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Escribe un comentario…'), 'Falta un test');
+    await ctrl(LogicalKeyboardKey.enter);
+    expect(find.byType(CommentRow), findsOneWidget);
+    final c = tester.widget<DiffView>(find.byType(DiffView)).workspace.comments.single;
+    expect(c.anchors.single.isWholeFile, isTrue);
+    expect(c.anchors.single.path, 'src/greet.ts');
+    expect(find.byType(CommentRow), findsOneWidget);
+    expect(find.text('archivo completo'), findsOneWidget);
+
+    // File tree: clicking a file scrolls the diff to it.
+    await ctrl(LogicalKeyboardKey.keyE);
+    final list = tester.widget<Scrollable>(
+      find.descendant(of: find.byType(DiffView), matching: find.byType(Scrollable)).first,
+    );
+    expect(list.controller!.offset, 0);
+    await tester.tap(find.descendant(of: find.byType(FilesTab), matching: find.text('app.css')));
+    await tester.pumpAndSettle();
+    expect(list.controller!.offset, greaterThan(100));
+
+    shell.closeReview();
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
   });
 }

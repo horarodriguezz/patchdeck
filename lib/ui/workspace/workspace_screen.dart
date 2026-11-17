@@ -108,10 +108,12 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       case LogicalKeyboardKey.keyF:
         if (ws.patches.isEmpty) return false;
         _openSearch(ws);
-      case LogicalKeyboardKey.keyB:
-        ws.toggleLeft();
       case LogicalKeyboardKey.keyL:
+        ws.toggleLeft();
+      case LogicalKeyboardKey.keyR:
         ws.toggleRight();
+      case LogicalKeyboardKey.keyE:
+        ws.toggleLeftTab(2);
       default:
         return false;
     }
@@ -303,14 +305,14 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     ),
                     TitleBarIconButton(
                       tooltip: ws.leftOpen
-                          ? 'Ocultar contexto y comentarios (Ctrl+B)'
-                          : 'Mostrar contexto y comentarios (Ctrl+B)',
+                          ? 'Ocultar panel izquierdo (Ctrl+L)'
+                          : 'Mostrar contexto, comentarios y archivos (Ctrl+L)',
                       selected: ws.leftOpen,
                       icon: Icon(ws.leftOpen ? Icons.forum : Icons.forum_outlined),
                       onPressed: ws.toggleLeft,
                     ),
                     TitleBarIconButton(
-                      tooltip: ws.rightOpen ? 'Ocultar notas (Ctrl+L)' : 'Mostrar notas (Ctrl+L)',
+                      tooltip: ws.rightOpen ? 'Ocultar notas (Ctrl+R)' : 'Mostrar notas (Ctrl+R)',
                       selected: ws.rightOpen,
                       icon: Icon(ws.rightOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined),
                       onPressed: ws.toggleRight,

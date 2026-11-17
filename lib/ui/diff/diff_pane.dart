@@ -42,6 +42,13 @@ class _DiffPaneState extends State<DiffPane> {
   /// [ifNeeded] nothing moves when the line is already comfortably in view.
   void _scrollTo(DiffLayout layout, LineKey key, {bool ifNeeded = false}) {
     if (!mounted || !_scroll.hasClients) return;
+    if (key.isFile) {
+      // A whole file: put its header at the top.
+      if (key.$2 >= layout.fileRow.length) return;
+      final target = layout.offsets[layout.fileRow[key.$2]].clamp(0.0, _scroll.position.maxScrollExtent);
+      _scroll.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+      return;
+    }
     final row = layout.rows.indexWhere(
       (r) => r.kind == RowKind.line && r.file == key.$2 && r.hunk == key.$3 && (r.a == key.$4 || r.b == key.$4),
     );

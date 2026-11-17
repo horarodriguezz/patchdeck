@@ -40,7 +40,7 @@ class WorkspaceController extends ChangeNotifier {
   bool leftOpen = false;
   bool rightOpen = true;
 
-  /// 0 = context, 1 = comments.
+  /// 0 = context, 1 = comments, 2 = files.
   int leftTab = 0;
 
   /// A line a pane should scroll to on its next build (see [reveal]).
@@ -345,7 +345,8 @@ class WorkspaceController extends ChangeNotifier {
       for (final a in c.anchors) {
         if (a.patchId != patchId) continue;
         final k = m?.keyFor(a);
-        final pos = k == null ? 1 << 50 : (k.$2 << 40) | (k.$3 << 20) | k.$4;
+        // +1 so whole-file keys (-1) sort first within their file.
+        final pos = k == null ? 1 << 50 : (k.$2 << 40) | ((k.$3 + 1) << 20) | (k.$4 + 1);
         if (best < 0 || pos < best) best = pos;
       }
       if (best >= 0) withPos.add((c, best));
@@ -389,6 +390,9 @@ class WorkspaceController extends ChangeNotifier {
     return (k, _pendingRevealIfNeeded);
   }
 
+  /// Jumps to file [file] of [patchId] (expanding it).
+  void revealFile(String patchId, int file) => reveal(fileKey(patchId, file));
+
   void deleteComment(String id) {
     review.comments.removeWhere((c) => c.id == id);
     _commentsVersion++;
@@ -416,6 +420,16 @@ class WorkspaceController extends ChangeNotifier {
     leftTab = tab;
     leftOpen = true;
     notifyListeners();
+  }
+
+  /// Opens the left panel on [tab]; if it is already showing it, closes it.
+  void toggleLeftTab(int tab) {
+    if (leftOpen && leftTab == tab) {
+      leftOpen = false;
+      notifyListeners();
+    } else {
+      openLeftTab(tab);
+    }
   }
 
   void setLeftTab(int tab) {

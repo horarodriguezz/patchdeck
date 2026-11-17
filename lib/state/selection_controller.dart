@@ -23,6 +23,7 @@ class _Drag {
 /// * drag `+`           → select a contiguous range (within a file)
 /// * ctrl+click / drag  → add to (or remove from) the current selection
 /// * shift+click        → extend from the last clicked line
+/// * file header button → the whole file ([fileKey]), same ctrl semantics
 class SelectionController extends ChangeNotifier {
   final LinkedHashSet<LineKey> _selected = LinkedHashSet();
   _Drag? _drag;
@@ -61,6 +62,26 @@ class SelectionController extends ChangeNotifier {
     _lastClick = (layout, row, side);
     _apply(row);
     if (wasEmpty) session++;
+  }
+
+  /// Selects the whole file [key] (a [fileKey]); with [ctrl] it is added
+  /// to (or removed from) the current selection, like ctrl+click on a line.
+  void toggleFile(LineKey key, {required bool ctrl}) {
+    final wasEmpty = _selected.isEmpty;
+    if (editingCommentId != null && !ctrl) {
+      editingCommentId = null;
+      session++;
+    }
+    if (ctrl) {
+      if (!_selected.remove(key)) _selected.add(key);
+    } else {
+      _selected
+        ..clear()
+        ..add(key);
+    }
+    if (_selected.isEmpty) editingCommentId = null;
+    if (wasEmpty && _selected.isNotEmpty) session++;
+    notifyListeners();
   }
 
   void dragTo(int row) {

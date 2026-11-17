@@ -8,6 +8,7 @@ class PatchModel {
   PatchModel(this.entry, this.parsed) {
     for (var f = 0; f < parsed.files.length; f++) {
       final file = parsed.files[f];
+      _keyByAnchor[LineAnchor(patchId: entry.id, path: file.path).key] = fileKey(entry.id, f);
       for (var h = 0; h < file.hunks.length; h++) {
         final lines = file.hunks[h].lines;
         for (var i = 0; i < lines.length; i++) {
@@ -33,10 +34,12 @@ class PatchModel {
 
   LineAnchor anchorFor(LineKey k) {
     final file = parsed.files[k.$2];
+    if (k.isFile) return LineAnchor(patchId: entry.id, path: file.path);
     return _anchor(file, file.hunks[k.$3].lines[k.$4]);
   }
 
   LineKey? keyFor(LineAnchor a) => _keyByAnchor[a.key];
 
+  /// Only for line keys (not [fileKey]s).
   DiffLine lineFor(LineKey k) => parsed.files[k.$2].hunks[k.$3].lines[k.$4];
 }

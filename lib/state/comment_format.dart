@@ -96,7 +96,8 @@ String describeLocations(List<LineAnchor> anchors, {required Map<String, String>
   return parts.join(' | ');
 }
 
-/// "L3-L5, L9" for new-side lines, "L7-L8 (eliminadas)" for deleted lines.
+/// "L3-L5, L9" for new-side lines, "L7-L8 (eliminadas)" for deleted lines,
+/// "(archivo completo)" for a whole-file anchor.
 String lineRanges(List<LineAnchor> anchors) {
   final news = <int>{
     for (final a in anchors)
@@ -107,6 +108,7 @@ String lineRanges(List<LineAnchor> anchors) {
       if (a.newLine == null && a.oldLine != null) a.oldLine!,
   }.toList()..sort();
   final out = <String>[];
+  if (anchors.any((a) => a.isWholeFile)) out.add('(archivo completo)');
   if (news.isNotEmpty) out.add(_compress(news));
   if (olds.isNotEmpty) out.add('${_compress(olds)} (${olds.length == 1 ? 'eliminada' : 'eliminadas'})');
   return out.join(', ');

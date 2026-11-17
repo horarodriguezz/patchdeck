@@ -1,4 +1,5 @@
-/// A pointer to a concrete line of a concrete patch.
+/// A pointer to a concrete line of a concrete patch (or, with neither line
+/// number set, to the whole file).
 ///
 /// Anchors are stable across re-parsing (they don't depend on list indices),
 /// which is what gets persisted.
@@ -11,6 +12,9 @@ class LineAnchor {
   final int? newLine;
 
   String get key => '$patchId|$path|${oldLine ?? ''}|${newLine ?? ''}';
+
+  /// Points at the whole file instead of a line.
+  bool get isWholeFile => oldLine == null && newLine == null;
 
   @override
   bool operator ==(Object other) => other is LineAnchor && other.key == key;

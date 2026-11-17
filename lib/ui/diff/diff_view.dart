@@ -82,6 +82,7 @@ class _DiffViewState extends State<DiffView> {
   double _numberWidth = 0;
   TextStyle _codeStyle = const TextStyle();
   bool _stickyShown = false;
+  int? _stickyFile;
 
   /// Mouse text selection (rows of [DiffView.layout], columns in the line).
   _TextSel? _sel;
@@ -91,6 +92,10 @@ class _DiffViewState extends State<DiffView> {
   DateTime _lastDown = DateTime(0);
   int _clicks = 0;
   int _lastDownRow = -1;
+
+  /// File (and split side) last clicked in this pane: the target of Ctrl+A.
+  int? _focusFile;
+  Side _focusSide = Side.right;
 
   @override
   void initState() {
@@ -206,9 +211,18 @@ class _DiffViewState extends State<DiffView> {
       return;
     }
     final p = e.localPosition;
-    if (_stickyShown && p.dy < FileHeaderRow.boxHeight) return;
+    // Not while the comment composer is open (e.g. ctrl+clicking a file's
+    // comment button), so its text field keeps the focus.
+    if (widget.selection.isEmpty) _focus.requestFocus();
+    if (_stickyShown && p.dy < FileHeaderRow.boxHeight) {
+      _focusFile = _stickyFile ?? _focusFile;
+      return;
+    }
     final side = _sideAt(p.dx);
     final (row, col) = _posAt(p, side);
+    final f = widget.layout.rows.isEmpty ? -1 : widget.layout.rows[row].file;
+    if (f >= 0) _focusFile = f;
+    _focusSide = side;
     final line = _lineAt(row, side);
     if (line == null || !_inCode(p, side)) {
       if (_sel != null) _clearTextSelection();
@@ -345,10 +359,54 @@ class _DiffViewState extends State<DiffView> {
     }
   }
 
+  /// Ctrl+A: selects all the code of the focused file (the one last clicked,
+  /// else the one at the top of the viewport), on the clicked side.
+  bool _selectFile() {
+    final layout = widget.layout;
+    if (layout.rows.isEmpty) return false;
+    var f = _focusFile ?? (_sel != null ? layout.rows[_sel!.anchorRow].file : -1);
+    if (f < 0) {
+      final c = widget.controller;
+      final top = layout.indexAt(c.hasClients ? c.offset : 0);
+      f = top < 0 ? -1 : layout.rows[top].file;
+    }
+    if (f < 0 || f >= layout.fileRow.length) return false;
+    final start = layout.fileRow[f];
+    final end = f + 1 < layout.fileRow.length ? layout.fileRow[f + 1] : layout.rows.length;
+    (int, int)? range(Side side) {
+      var first = -1, last = -1;
+      for (var r = start; r < end; r++) {
+        if (_lineAt(r, side) == null) continue;
+        if (first < 0) first = r;
+        last = r;
+      }
+      return first < 0 ? null : (first, last);
+    }
+
+    final sides = widget.mode == DiffMode.unified
+        ? [Side.left]
+        : [_focusSide, _focusSide == Side.left ? Side.right : Side.left];
+    for (final side in sides) {
+      final r = range(side);
+      if (r == null) continue;
+      widget.codeSelection.claim(this);
+      _sel = _TextSel(side, r.$1, 0, r.$2, _lineAt(r.$2, side)!.text.length);
+      _textDragging = false;
+      _selVersion.value++;
+      _publish();
+      return true;
+    }
+    return false;
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final hk = HardwareKeyboard.instance;
     final ctrl = hk.isControlPressed || hk.isMetaPressed;
+    if (ctrl && !hk.isShiftPressed && !hk.isAltPressed && e.logicalKey == LogicalKeyboardKey.keyA) {
+      _selectFile();
+      return KeyEventResult.handled;
+    }
     if (ctrl && e.logicalKey == LogicalKeyboardKey.keyC && _sel != null && !_sel!.isEmpty) {
       _copySelection();
       return KeyEventResult.handled;
@@ -401,9 +459,16 @@ class _DiffViewState extends State<DiffView> {
     final file = widget.model.parsed.files[f];
     final pid = widget.model.id;
     final ws = widget.workspace;
+    final key = fileKey(pid, f);
     return FileHeaderRow(
       file: file,
       sticky: sticky,
+      commentSelected: widget.selection.isSelected(key),
+      hasFileComment: ws.commentedKeys(pid).contains(key),
+      onComment: () => widget.selection.toggleFile(
+        key,
+        ctrl: HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed,
+      ),
       collapsed: collapsed.contains(f),
       commentCount: counts[file.path] ?? 0,
       viewed: ws.isViewed(pid, f),
@@ -422,11 +487,12 @@ class _DiffViewState extends State<DiffView> {
   /// own row is scrolled out; the next header pushes it up.
   Widget _stickyHeader(Map<String, int> counts, Set<int> collapsed) {
     return ListenableBuilder(
-      listenable: widget.controller,
+      listenable: Listenable.merge([widget.controller, widget.selection]),
       builder: (context, _) {
         final c = widget.controller;
         final layout = widget.layout;
         _stickyShown = false;
+        _stickyFile = null;
         if (!c.hasClients || layout.rows.isEmpty) return const SizedBox.shrink();
         final offset = c.offset;
         final row = layout.indexAt(offset);
@@ -436,6 +502,7 @@ class _DiffViewState extends State<DiffView> {
         final headerTop = layout.offsets[layout.fileRow[f]] + FileHeaderRow.topGap;
         if (offset <= headerTop) return const SizedBox.shrink();
         _stickyShown = true;
+        _stickyFile = f;
         var dy = 0.0;
         if (f + 1 < layout.fileRow.length) {
           final nextTop = layout.offsets[layout.fileRow[f + 1]] + FileHeaderRow.topGap;
@@ -565,7 +632,12 @@ class _DiffViewState extends State<DiffView> {
   String _commentSummary(ReviewComment c) {
     final files = <String>{for (final a in c.anchors) '${a.patchId}|${a.path}'}.length;
     final patches = <String>{for (final a in c.anchors) a.patchId}.length;
-    final parts = ['${c.anchors.length} ${c.anchors.length == 1 ? 'línea' : 'líneas'}'];
+    final whole = c.anchors.where((a) => a.isWholeFile).length;
+    final lines = c.anchors.length - whole;
+    final parts = [
+      if (lines > 0) '$lines ${lines == 1 ? 'línea' : 'líneas'}',
+      if (whole > 0) whole == 1 ? 'archivo completo' : '$whole archivos completos',
+    ];
     if (files > 1) parts.add('$files archivos');
     if (patches > 1) parts.add('$patches patches');
     return parts.join(' · ');

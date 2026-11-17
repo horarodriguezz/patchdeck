@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patchdeck/diff/diff_layout.dart';
+import 'package:patchdeck/diff/diff_models.dart';
 import 'package:patchdeck/diff/diff_parser.dart';
 import 'package:patchdeck/models/app_settings.dart';
 import 'package:patchdeck/models/review.dart';
@@ -9,6 +10,7 @@ import 'package:patchdeck/state/patch_model.dart';
 import 'package:patchdeck/state/comment_format.dart';
 import 'package:patchdeck/state/review_export.dart';
 import 'package:patchdeck/state/selection_controller.dart';
+import 'package:patchdeck/ui/workspace/files_tab.dart';
 
 void main() {
   final parsed = parsePatch(File('test/fixtures/sample.patch').readAsStringSync());
@@ -162,5 +164,99 @@ void main() {
       'JetBrains Mono',
     );
     expect(ReviewComment.fromJson(dismissed.toJson()).dismissed, isTrue);
+  });
+
+  test('whole-file keys: anchors, layout placement, ordering and copy format', () {
+    final fk = fileKey('p1', 1);
+    expect(fk.isFile, isTrue);
+    expect(('p1', 1, 0, 0).isFile, isFalse);
+    final a = model.anchorFor(fk);
+    expect(a.isWholeFile, isTrue);
+    expect(a.path, 'styles/app.css');
+    expect(model.keyFor(a), fk);
+    expect(model.keyFor(LineAnchor.fromJson(a.toJson())), fk);
+
+    // Alone it sits right under the file header; with a line of the same
+    // file it goes after that line, once.
+    var l = build(
+      DiffMode.unified,
+      comments: {
+        fk: ['c1'],
+      },
+    );
+    var i = l.rows.indexWhere((r) => r.kind == RowKind.comment);
+    expect(l.rows[i - 1].kind, RowKind.fileHeader);
+    expect(l.rows[i - 1].file, 1);
+    l = build(
+      DiffMode.split,
+      comments: {
+        fk: ['c1'],
+        ('p1', 1, 0, 1): ['c1'],
+      },
+    );
+    expect(l.rows.where((r) => r.kind == RowKind.comment).length, 1);
+    i = l.rows.indexWhere((r) => r.kind == RowKind.comment);
+    expect(l.rows[i - 1].kind, RowKind.line);
+    // Collapsed files hide it like any other comment.
+    l = build(
+      DiffMode.unified,
+      comments: {
+        fk: ['c1'],
+      },
+      collapsed: {1},
+    );
+    expect(l.rows.where((r) => r.kind == RowKind.comment), isEmpty);
+
+    final c = ReviewComment(
+      id: 'c',
+      anchors: [a, model.anchorFor(('p1', 0, 0, 3))],
+      labelIds: const [],
+      text: 'x',
+      createdAt: DateTime(2024),
+      updatedAt: DateTime(2024),
+    );
+    expect(
+      describeLocations(c.anchors, patchNames: const {'p1': 'A'}),
+      'styles/app.css (archivo completo) · src/greet.ts L2',
+    );
+    expect(lineRanges([a, model.anchorFor(('p1', 1, 0, 3))]), '(archivo completo), L12');
+  });
+
+  test('selection: whole-file button toggles like ctrl+click', () {
+    final l = build(DiffMode.unified);
+    final s = SelectionController();
+    final fk = fileKey('p1', 0);
+    s.toggleFile(fk, ctrl: false);
+    expect(s.selected, {fk});
+    final firstLine = l.rows.indexWhere((r) => r.kind == RowKind.line && r.file == 1);
+    s.begin(l, DiffMode.unified, firstLine, Side.left, ctrl: true, shift: false);
+    s.end();
+    expect(s.selected.length, 2);
+    expect(s.selected.contains(fk), isTrue);
+    s.toggleFile(fk, ctrl: true);
+    expect(s.selected.contains(fk), isFalse);
+    expect(s.selected.length, 1);
+    s.toggleFile(fk, ctrl: true);
+    expect(s.selected.length, 2);
+    // Without ctrl it replaces the selection.
+    s.toggleFile(fileKey('p1', 1), ctrl: false);
+    expect(s.selected, {fileKey('p1', 1)});
+  });
+
+  test('file tree groups folders, compacts single-child chains and sorts folders first', () {
+    DiffFile f(String p) => DiffFile(
+      oldPath: p,
+      newPath: p,
+      status: FileStatus.modified,
+      isBinary: false,
+      hunks: const [],
+      additions: 0,
+      deletions: 0,
+    );
+    final tree = buildFileTree([f('README.md'), f('lib/ui/diff/a.dart'), f('lib/ui/diff/b.dart'), f('lib/main.dart')]);
+    expect([for (final n in tree) n.name], ['lib', 'README.md']);
+    final lib = tree.first;
+    expect([for (final n in lib.children) n.name], ['ui/diff', 'main.dart']);
+    expect([for (final n in lib.children.first.children) n.file], [1, 2]);
   });
 }

@@ -6,6 +6,14 @@ import 'diff_models.dart';
 /// Identity of a rendered line inside one patch: (patchId, file, hunk, line).
 typedef LineKey = (String, int, int, int);
 
+/// Key of a whole file (a comment on the file rather than on its lines).
+LineKey fileKey(String patchId, int file) => (patchId, file, -1, -1);
+
+extension LineKeyX on LineKey {
+  /// True for a [fileKey] (no hunk / line).
+  bool get isFile => $3 < 0;
+}
+
 enum RowKind { preamble, fileHeader, notice, hunk, line, comment, gap }
 
 /// Which column of a split row a gutter belongs to. Unified rows use [left].
@@ -130,6 +138,9 @@ DiffLayout buildDiffLayout({
     fileRow[f] = rows.length;
     rows.add(DiffRow(RowKind.fileHeader, f));
     if (!collapsedFiles.contains(f)) {
+      // Whole-file comments sit under the header unless a commented line
+      // of the same file comes later.
+      noteLine(fileKey(patchId, f), rows.length - 1);
       if (file.isBinary || file.hunks.isEmpty) {
         rows.add(DiffRow(RowKind.notice, f));
       }

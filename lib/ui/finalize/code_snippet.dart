@@ -27,14 +27,19 @@ class CodeSnippet extends StatelessWidget {
     final files = byFile.keys.toList()..sort();
     final children = <Widget>[];
     for (final f in files) {
-      final ks = byFile[f]!..sort((a, b) => a.$3 != b.$3 ? a.$3.compareTo(b.$3) : a.$4.compareTo(b.$4));
+      final all = byFile[f]!;
+      final whole = all.any((k) => k.isFile);
+      final ks = [
+        for (final k in all)
+          if (!k.isFile) k,
+      ]..sort((a, b) => a.$3 != b.$3 ? a.$3.compareTo(b.$3) : a.$4.compareTo(b.$4));
       {
         children.add(
           Container(
             color: t.fileHeaderBg,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             child: Text(
-              model.parsed.files[f].displayPath,
+              whole ? '${model.parsed.files[f].displayPath}  · archivo completo' : model.parsed.files[f].displayPath,
               style: style.copyWith(fontSize: 11, color: t.hunkFg),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

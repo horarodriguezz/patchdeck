@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../diff/diff_layout.dart';
 import '../../diff/diff_models.dart';
@@ -17,6 +20,9 @@ class FileHeaderRow extends StatelessWidget {
     required this.commentCount,
     required this.viewed,
     required this.onViewedChanged,
+    required this.onComment,
+    this.commentSelected = false,
+    this.hasFileComment = false,
     this.sticky = false,
   });
 
@@ -26,6 +32,15 @@ class FileHeaderRow extends StatelessWidget {
   final int commentCount;
   final bool viewed;
   final ValueChanged<bool> onViewedChanged;
+
+  /// Whole-file comment button pressed (selection decides ctrl semantics).
+  final VoidCallback onComment;
+
+  /// The whole file is part of the current comment selection.
+  final bool commentSelected;
+
+  /// At least one comment targets the whole file.
+  final bool hasFileComment;
 
   /// Pinned copy drawn over the top of the list: no top spacing, with a shadow.
   final bool sticky;
@@ -75,6 +90,8 @@ class FileHeaderRow extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                     ),
+                    const SizedBox(width: 4),
+                    CopyPathButton(path: file.path),
                     if (statusText.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -104,7 +121,9 @@ class FileHeaderRow extends StatelessWidget {
                 '−${file.deletions}',
                 style: const TextStyle(color: Color(0xFFE5534B), fontSize: 12, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
+              _FileCommentButton(selected: commentSelected, commented: hasFileComment, onTap: onComment),
+              const SizedBox(width: 6),
               _ViewedToggle(viewed: viewed, onChanged: onViewedChanged),
             ],
           ),
@@ -115,6 +134,91 @@ class FileHeaderRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: topGap),
       child: header,
+    );
+  }
+}
+
+/// Copies a file's relative path; the icon turns into a check for a moment.
+class CopyPathButton extends StatefulWidget {
+  const CopyPathButton({super.key, required this.path, this.size = 14});
+  final String path;
+  final double size;
+
+  @override
+  State<CopyPathButton> createState() => _CopyPathButtonState();
+}
+
+class _CopyPathButtonState extends State<CopyPathButton> {
+  bool _copied = false;
+  Timer? _reset;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.path));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _reset?.cancel();
+    _reset = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: _copied ? 'Ruta copiada' : 'Copiar ruta relativa',
+      child: InkWell(
+        onTap: _copy,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            _copied ? Icons.check : Icons.content_copy,
+            size: widget.size,
+            color: _copied ? const Color(0xFF57AB5A) : theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Header button that selects the whole file for a comment; it joins the
+/// regular line selection (Ctrl+clic adds/removes it).
+class _FileCommentButton extends StatelessWidget {
+  const _FileCommentButton({required this.selected, required this.commented, required this.onTap});
+  final bool selected;
+  final bool commented;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.diffTheme;
+    final primary = Theme.of(context).colorScheme.primary;
+    final color = selected || commented ? primary : Theme.of(context).colorScheme.onSurfaceVariant;
+    return Tooltip(
+      message: 'Comentar el archivo completo (Ctrl+clic lo agrega a la selección)',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          height: 24,
+          width: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? primary.withValues(alpha: 0.18) : null,
+            border: Border.all(color: selected ? primary.withValues(alpha: 0.6) : t.border),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(commented ? Icons.mode_comment : Icons.add_comment_outlined, size: 15, color: color),
+        ),
+      ),
     );
   }
 }
