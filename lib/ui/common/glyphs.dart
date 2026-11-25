@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum GlyphKind { chevronUp, chevronDown, close, check }
+enum GlyphKind { chevronUp, chevronDown, close, check, fileTree }
 
 /// Tiny stroked glyphs drawn with a painter, so they render the same on every
 /// build regardless of the icon font. Color comes from the ambient [IconTheme].
@@ -60,6 +60,21 @@ class _GlyphPainter extends CustomPainter {
           ..moveTo(w * 0.2, h * 0.52)
           ..lineTo(w * 0.42, h * 0.72)
           ..lineTo(w * 0.8, h * 0.3);
+      case GlyphKind.fileTree:
+        // A root node with two children hanging from a vertical line.
+        final r = w * 0.09;
+        void node(double x, double y) => path.addRRect(
+          RRect.fromRectAndRadius(Rect.fromLTRB(x, y - r, x + w * 0.3, y + r), Radius.circular(r * 0.6)),
+        );
+        node(w * 0.12, h * 0.22);
+        node(w * 0.58, h * 0.52);
+        node(w * 0.58, h * 0.8);
+        path
+          ..moveTo(w * 0.27, h * 0.22 + r)
+          ..lineTo(w * 0.27, h * 0.8)
+          ..lineTo(w * 0.58, h * 0.8)
+          ..moveTo(w * 0.27, h * 0.52)
+          ..lineTo(w * 0.58, h * 0.52);
     }
     canvas.drawPath(path, p);
   }
