@@ -6,13 +6,21 @@ import '../models/app_settings.dart';
 import '../models/ids.dart';
 import '../models/label.dart';
 import '../services/settings_repository.dart';
+import 'sync_merge.dart';
 
 class SettingsController extends ChangeNotifier {
-  SettingsController(this._repo, this._settings);
+  SettingsController(this._repo, this._settings) : _base = _settings {
+    // settings.json edited by other processes (e.g. labels from the MCP server).
+    _external = _repo.changes.listen(applyExternal);
+  }
 
   final SettingsRepository _repo;
   AppSettings _settings;
   Timer? _saveTimer;
+
+  /// settings.json as we last read or wrote it.
+  AppSettings _base;
+  StreamSubscription<AppSettings>? _external;
 
   AppSettings get settings => _settings;
   List<ReviewLabel> get labels => _settings.labels;
@@ -28,7 +36,20 @@ class SettingsController extends ChangeNotifier {
     _settings = s;
     notifyListeners();
     _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 300), () => _repo.save(_settings));
+    _saveTimer = Timer(const Duration(milliseconds: 300), _save);
+  }
+
+  /// Merges a settings.json written by another process, keeping local edits.
+  void applyExternal(AppSettings fresh) {
+    _settings = mergeSettings(base: _base, local: _settings, remote: fresh);
+    _base = fresh;
+    notifyListeners();
+  }
+
+  Future<void> _save() async {
+    if (await _repo.changedOnDisk()) applyExternal(await _repo.load());
+    await _repo.save(_settings);
+    _base = _settings;
   }
 
   void setTheme(String id) => update(_settings.copyWith(themeId: id));
@@ -68,7 +89,13 @@ class SettingsController extends ChangeNotifier {
   Future<void> flush() async {
     if (_saveTimer?.isActive ?? false) {
       _saveTimer!.cancel();
-      await _repo.save(_settings);
+      await _save();
     }
+  }
+
+  @override
+  void dispose() {
+    _external?.cancel();
+    super.dispose();
   }
 }

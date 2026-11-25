@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/ids.dart';
@@ -5,9 +7,13 @@ import '../models/review.dart';
 import '../services/review_repository.dart';
 
 class ReviewsController extends ChangeNotifier {
-  ReviewsController(this.repo);
+  ReviewsController(this.repo) {
+    // Reviews created or changed by other processes (the MCP server).
+    _external = repo.changes.listen((_) => refresh());
+  }
 
   final ReviewRepository repo;
+  StreamSubscription<ReviewChange>? _external;
   List<ReviewSummary> _items = const [];
   bool _loading = true;
 
@@ -40,11 +46,18 @@ class ReviewsController extends ChangeNotifier {
       ..title = title
       ..updatedAt = DateTime.now();
     await repo.save(r);
+    repo.announce(r); // an open workspace takes the new title
     await refresh();
   }
 
   Future<void> delete(String id) async {
     await repo.delete(id);
     await refresh();
+  }
+
+  @override
+  void dispose() {
+    _external?.cancel();
+    super.dispose();
   }
 }

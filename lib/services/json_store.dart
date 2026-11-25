@@ -23,4 +23,15 @@ abstract final class JsonStore {
     await tmp.writeAsString(pretty ? _encoder.convert(json) : jsonEncode(json), flush: true);
     await tmp.rename(file.path);
   }
+
+  /// Modification time and size of [file], or null if it doesn't exist.
+  /// Used to tell our own writes apart from other processes' (e.g. the MCP
+  /// server) without reading the whole file.
+  static Future<FileStamp?> stamp(File file) async {
+    final s = await file.stat();
+    if (s.type == FileSystemEntityType.notFound) return null;
+    return (modified: s.modified, size: s.size);
+  }
 }
+
+typedef FileStamp = ({DateTime modified, int size});
