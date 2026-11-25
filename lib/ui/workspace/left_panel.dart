@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
 import '../comments/comments_tab.dart';
+import '../common/glyphs.dart';
 import '../common/markdown_panel.dart';
 import 'files_tab.dart';
 import 'side_panel.dart';
@@ -57,6 +58,7 @@ class LeftPanel extends StatelessWidget {
               ),
               _TabButton(
                 icon: Icons.account_tree_outlined,
+                glyph: GlyphKind.fileTree,
                 label: 'Archivos',
                 tooltip: 'Archivos (Ctrl+E)',
                 compact: compact,
@@ -85,7 +87,7 @@ class LeftPanel extends StatelessWidget {
           IconButton(
             tooltip: 'Archivos (Ctrl+E)',
             iconSize: 18,
-            icon: const Icon(Icons.account_tree_outlined),
+            icon: const Glyph(GlyphKind.fileTree, size: 18, stroke: 1.5),
             onPressed: () => ws.openLeftTab(2),
           ),
         ],
@@ -114,10 +116,14 @@ class _TabButton extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.badge = 0,
+    this.glyph,
     this.compact = false,
     this.tooltip,
   });
   final IconData icon;
+
+  /// Painted instead of [icon] (doesn't depend on the icon font).
+  final GlyphKind? glyph;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -144,7 +150,7 @@ class _TabButton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 16, color: color),
+              glyph == null ? Icon(icon, size: 16, color: color) : Glyph(glyph!, size: 16, color: color, stroke: 1.4),
               if (showLabel) ...[
                 const SizedBox(width: 6),
                 Text(
