@@ -28,6 +28,8 @@ Future<void> main() async {
   final reviewRepo = ReviewRepository(paths);
   final settings = SettingsController(settingsRepo, await settingsRepo.load());
   final reviews = ReviewsController(reviewRepo)..refresh();
+  // Pick up changes made by other processes, such as the MCP server (mcp/).
+  await Future.wait([reviewRepo.watch(), settingsRepo.watch()]);
   SystemFonts.current = await fonts;
 
   runApp(

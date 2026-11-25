@@ -9,6 +9,7 @@ import '../models/ids.dart';
 import '../models/review.dart';
 import '../services/review_repository.dart';
 import 'patch_model.dart';
+import 'sync_merge.dart';
 
 /// Owns one open review: its patches (parsed lazily, off-thread), comments,
 /// markdown panels and per-pane view state. Persists with a short debounce.
@@ -18,6 +19,12 @@ class WorkspaceController extends ChangeNotifier {
       _parse(p);
     }
     if (review.patches.isNotEmpty) _visible.add(review.patches.first.id);
+    _base = ReviewSnapshot.of(review);
+    // Changes made by other processes (the MCP server) while it's open.
+    _external = repo.changes.listen((c) {
+      final fresh = c.review;
+      if (c.id == review.id && fresh != null && !_disposed) applyExternal(fresh);
+    });
   }
 
   final ReviewRepository repo;
@@ -36,6 +43,10 @@ class WorkspaceController extends ChangeNotifier {
   int _commentsVersion = 0;
   Timer? _saveTimer;
   bool _disposed = false;
+
+  /// What the file looked like the last time we read or wrote it.
+  late ReviewSnapshot _base;
+  StreamSubscription<ReviewChange>? _external;
 
   bool leftOpen = false;
   bool rightOpen = true;
@@ -448,6 +459,58 @@ class WorkspaceController extends ChangeNotifier {
     _changed();
   }
 
+  // ------------------------------------------------------- external changes
+
+  /// Merges a version of this review written by another process (e.g. the
+  /// MCP server) into the open one: comments, patches, labels, notes… show up
+  /// without reopening it, and unsaved local edits are kept.
+  void applyExternal(Review fresh) {
+    final viewedBefore = Set.of(review.viewedFiles);
+    mergeReviewInto(review, _base, fresh);
+    _base = ReviewSnapshot.of(fresh);
+    _syncPatches();
+    _syncViewedCollapse(viewedBefore);
+    _commentsVersion++;
+    _layoutCache.clear();
+    notifyListeners();
+  }
+
+  /// Parses added / changed patches and forgets removed ones.
+  void _syncPatches() {
+    final ids = {for (final p in review.patches) p.id};
+    _models.removeWhere((id, _) => !ids.contains(id));
+    _collapsed.removeWhere((id, _) => !ids.contains(id));
+    _collapsedInit.removeWhere((id) => !ids.contains(id));
+    _visible.removeWhere((id) => !ids.contains(id));
+    for (final p in review.patches) {
+      final m = _models[p.id];
+      if (m == null) {
+        if (!_parsing.containsKey(p.id)) _parse(p);
+      } else if (m.entry.raw != p.raw) {
+        _models.remove(p.id);
+        _parse(p);
+      } else {
+        m.entry = p;
+      }
+    }
+    if (_visible.isEmpty && review.patches.isNotEmpty) _visible.add(review.patches.first.id);
+  }
+
+  /// Files marked / unmarked as viewed elsewhere collapse / expand here too.
+  void _syncViewedCollapse(Set<String> before) {
+    final now = review.viewedFiles;
+    if (now.length == before.length && now.containsAll(before)) return;
+    for (final m in _models.values) {
+      final s = _collapsed.putIfAbsent(m.id, () => {});
+      for (var f = 0; f < m.parsed.files.length; f++) {
+        final key = Review.viewedKey(m.id, m.parsed.files[f].path);
+        final was = before.contains(key), is_ = now.contains(key);
+        if (is_ && !was) s.add(f);
+        if (was && !is_) s.remove(f);
+      }
+    }
+  }
+
   // ----------------------------------------------------------- persistence
 
   void _changed() {
@@ -462,7 +525,14 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   Future<void> _save() async {
+    // Someone else wrote the file since we last synced: merge before saving so
+    // their changes aren't overwritten (the watcher may not have fired yet).
+    if (await repo.changedOnDisk(review.id)) {
+      final fresh = await repo.load(review.id);
+      if (fresh != null && !_disposed) applyExternal(fresh);
+    }
     await repo.save(review);
+    _base = ReviewSnapshot.of(review);
     onSaved?.call();
   }
 
@@ -478,6 +548,7 @@ class WorkspaceController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _external?.cancel();
     if (_saveTimer?.isActive ?? false) {
       _saveTimer!.cancel();
       repo.save(review);

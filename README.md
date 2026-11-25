@@ -77,6 +77,20 @@ pegas uno o varios patches, seleccionas líneas, las comentas con etiquetas y ll
 | **Pestaña de comentarios** | **Finalizar review** |
 | ![](docs/screenshots/comments-tab.png) | ![](docs/screenshots/finalize.png) |
 
+## Claude (MCP)
+
+En [`mcp/`](mcp/README.md) hay un servidor MCP para que Claude maneje Patchdeck: leer reviews y patches, dejar
+comentarios con etiquetas anclados a líneas, editar contexto y notas, marcar archivos como vistos y crear, editar,
+reordenar o eliminar etiquetas. La app abierta recarga sola esos cambios, sin perder lo que tengas sin guardar.
+
+```bash
+cd mcp && npm install && npm run build
+```
+
+```bash
+claude mcp add --scope user patchdeck -- node "$PWD/dist/src/index.js"
+```
+
 ## Descargas
 
 En [Releases](https://github.com/horarodriguezz/patchdeck/releases) hay builds listos:
@@ -155,8 +169,12 @@ lib/
   state/       controllers (settings, reviews, workspace, selección), PatchModel, export Markdown
   theme/       temas y DiffTheme (ThemeExtension con colores de diff y sintaxis)
   ui/          shell/ (sidebar, barra de título), settings/, workspace/, diff/, comments/, finalize/, common/
+mcp/           servidor MCP (TypeScript) que lee y escribe los mismos archivos
 ```
 
+- **Cambios externos**: la app vigila `reviews/` y `settings.json` (`DirWatcher`). Lo que escribe otro proceso (el
+  servidor MCP) se fusiona en tres vías con lo que está abierto (`state/sync_merge.dart`), y antes de cada guardado
+  se vuelve a mirar el disco para no pisar nada.
 - **Parseo y tokenizado fuera del hilo de UI** (`Isolate.run`) para patches grandes; se hace una sola vez.
 - **Virtualización total**: el diff (todos los archivos) se aplana en una lista de filas de **altura conocida**
   (`itemExtentBuilder`), así sólo existen widgets para lo visible y saltar a un archivo, o mapear el puntero a

@@ -21,6 +21,18 @@ class _MarkdownPanelState extends State<MarkdownPanel> {
   late bool _preview = widget.initialText.isNotEmpty;
 
   @override
+  void didUpdateWidget(MarkdownPanel old) {
+    super.didUpdateWidget(old);
+    // The text changed outside this editor (e.g. the MCP server wrote it).
+    if (widget.initialText != old.initialText && widget.initialText != _ctrl.text) {
+      _ctrl.value = TextEditingValue(
+        text: widget.initialText,
+        selection: TextSelection.collapsed(offset: widget.initialText.length),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
