@@ -27,6 +27,19 @@ class CommentActions {
 
   void copyOne(ReviewComment c, {String? patchId}) => _copy(format(c, patchId: patchId), 'Comentario copiado');
 
+  /// Copies only "path L2-L3" (all files of the comment, joined like the
+  /// `{{filePath + lines}}` template variable).
+  void copyLocation(ReviewComment c, {String? patchId}) => _copy(
+    formatComment(
+      c,
+      labelById: AppScope.of(context).settings.labelById,
+      patchNames: patchNames,
+      patchId: patchId,
+      template: '{{filePath + lines}}',
+    ),
+    'Ruta y líneas copiadas',
+  );
+
   /// Copies the active comments of [patchId] separated by a blank line.
   void copyPatch(String patchId) {
     final name = ws.entry(patchId)?.name ?? '';

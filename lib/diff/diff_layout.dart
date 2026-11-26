@@ -62,6 +62,10 @@ class DiffLayout {
   final String patchId;
   final int maxLineChars;
 
+  /// Whether any inline comment row was spliced in (their height depends on
+  /// the available width).
+  bool get hasComments => rows.any((r) => r.kind == RowKind.comment);
+
   double extent(int i) => offsets[i + 1] - offsets[i];
   double get totalHeight => offsets[rows.length];
 
@@ -113,6 +117,7 @@ DiffLayout buildDiffLayout({
   required DiffMetrics metrics,
   required Set<int> collapsedFiles,
   required Map<LineKey, List<String>> commentsByLine,
+  double Function(String commentId)? commentExtent,
 }) {
   final rows = <DiffRow>[];
   final fileRow = Int32List(patch.files.length);
@@ -227,7 +232,7 @@ DiffLayout buildDiffLayout({
       RowKind.notice => DiffMetrics.notice,
       RowKind.hunk => metrics.hunk,
       RowKind.line => metrics.lineHeight,
-      RowKind.comment => DiffMetrics.comment,
+      RowKind.comment => commentExtent?.call(finalRows[i].commentId!) ?? DiffMetrics.comment,
       RowKind.gap => DiffMetrics.gap,
     };
   }

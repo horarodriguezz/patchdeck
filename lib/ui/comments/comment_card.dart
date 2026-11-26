@@ -13,6 +13,7 @@ class CommentCard extends StatefulWidget {
     required this.labels,
     required this.locations,
     required this.onCopy,
+    required this.onCopyLocation,
     required this.onToggleDismissed,
     required this.onEdit,
     required this.onDelete,
@@ -30,6 +31,7 @@ class CommentCard extends StatefulWidget {
   final int? maxLines;
   final VoidCallback? onTap;
   final VoidCallback onCopy;
+  final VoidCallback onCopyLocation;
   final VoidCallback onToggleDismissed;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -70,12 +72,13 @@ class _CommentCardState extends State<CommentCard> {
                   ],
                 ),
               ),
-              _Action(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: widget.onCopy, visible: true),
+              _Action(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: widget.onCopy, visible: _hover),
+              _Action(icon: Icons.link, tip: 'Copiar ruta y líneas', onTap: widget.onCopyLocation, visible: _hover),
               _Action(
                 icon: dismissed ? Icons.restore : Icons.block,
                 tip: dismissed ? 'Restaurar' : 'Denegar',
                 onTap: widget.onToggleDismissed,
-                visible: _hover || dismissed,
+                visible: _hover,
               ),
               _Action(icon: Icons.edit_outlined, tip: 'Editar', onTap: widget.onEdit, visible: _hover),
               _Action(icon: Icons.delete_outline, tip: 'Eliminar', onTap: widget.onDelete, visible: _hover),

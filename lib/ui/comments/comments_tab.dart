@@ -10,8 +10,8 @@ import 'comment_actions.dart';
 import 'comment_card.dart';
 
 /// Comments of the patches currently on screen, grouped by patch and
-/// ordered by position. Clicking a comment scrolls the diff to it and opens
-/// it in the composer.
+/// ordered by position. Clicking a comment scrolls the diff to it; the edit
+/// button opens it in the composer.
 class CommentsTab extends StatefulWidget {
   const CommentsTab({super.key, required this.workspace, required this.selection});
 
@@ -74,8 +74,9 @@ class _CommentsTabState extends State<CommentsTab> {
               labels: [for (final id in c.labelIds) ?settings.labelById(id)],
               locations: describeLocations(c.anchors, patchNames: names, patchId: pid),
               alsoIn: others.isEmpty ? null : 'También en ${others.join(', ')}',
-              onTap: () => _open(c, pid),
+              onTap: () => _goTo(c, pid),
               onCopy: () => actions.copyOne(c, patchId: pid),
+              onCopyLocation: () => actions.copyLocation(c, patchId: pid),
               onToggleDismissed: () => actions.toggleDismissed(c),
               onEdit: () => _open(c, pid),
               onDelete: () => actions.delete(
@@ -124,6 +125,13 @@ class _CommentsTabState extends State<CommentsTab> {
         ),
       ],
     );
+  }
+
+  /// Scrolls the diff to the comment's inline card without opening the composer.
+  void _goTo(ReviewComment c, String patchId) {
+    final ws = widget.workspace;
+    final k = ws.firstKeyOf(c, patchId) ?? ws.firstKeyOf(c);
+    if (k != null) ws.reveal(k, commentId: c.id);
   }
 
   void _open(ReviewComment c, String patchId) {

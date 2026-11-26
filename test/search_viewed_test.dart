@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patchdeck/app.dart';
@@ -17,7 +19,10 @@ import 'package:patchdeck/state/reviews_controller.dart';
 import 'package:patchdeck/state/settings_controller.dart';
 import 'package:patchdeck/state/shell_controller.dart';
 import 'package:patchdeck/state/workspace_controller.dart';
+import 'package:patchdeck/diff/diff_layout.dart';
+import 'package:patchdeck/ui/comments/comment_card.dart';
 import 'package:patchdeck/ui/diff/code_text.dart';
+import 'package:patchdeck/ui/diff/comment_composer.dart';
 import 'package:patchdeck/ui/diff/diff_rows.dart';
 import 'package:patchdeck/ui/diff/diff_view.dart';
 import 'package:patchdeck/ui/workspace/files_tab.dart';
@@ -33,15 +38,16 @@ Future<WorkspaceController> _workspace(ReviewRepository repo, Review r) async {
   return ws;
 }
 
-Review _review() => Review(
+Review _review({List<ReviewComment>? comments}) => Review(
   id: 'r1',
   title: 'Review',
   createdAt: DateTime(2024),
   updatedAt: DateTime(2024),
   patches: [PatchEntry(id: 'p1', name: 'A', raw: _raw, createdAt: DateTime(2024))],
+  comments: comments,
 );
 
-Future<ShellController> _pumpWorkspace(WidgetTester tester, Size size) async {
+Future<ShellController> _pumpWorkspace(WidgetTester tester, Size size, {List<ReviewComment>? comments}) async {
   // Short window so the small fixture patch scrolls.
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -56,7 +62,7 @@ Future<ShellController> _pumpWorkspace(WidgetTester tester, Size size) async {
   final tmp = Directory.systemTemp.createTempSync('patchdeck_ws');
   final paths = AppPaths(configDir: Directory('${tmp.path}/c'), dataDir: Directory('${tmp.path}/d'));
   final repo = ReviewRepository(paths);
-  await tester.runAsync(() => repo.save(_review()));
+  await tester.runAsync(() => repo.save(_review(comments: comments)));
   final reviews = ReviewsController(repo);
   await tester.runAsync(reviews.refresh);
   final shell = ShellController()..openReview('r1');
@@ -349,6 +355,94 @@ void main() {
     await tester.tap(find.descendant(of: find.byType(FilesTab), matching: find.text('app.css')));
     await tester.pumpAndSettle();
     expect(list.controller!.offset, greaterThan(100));
+
+    shell.closeReview();
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+  });
+
+  testWidgets('inline comments show their whole text; cards copy path + lines and jump without editing', (
+    tester,
+  ) async {
+    const text = 'Primera línea\nSegunda línea\nTercera línea\nCuarta línea\nQuinta línea';
+    final shell = await _pumpWorkspace(
+      tester,
+      const Size(1440, 900),
+      comments: [
+        ReviewComment(
+          id: 'c1',
+          anchors: const [
+            LineAnchor(patchId: 'p1', path: 'src/greet.ts', newLine: 2),
+            LineAnchor(patchId: 'p1', path: 'src/greet.ts', newLine: 3),
+          ],
+          labelIds: const [],
+          text: text,
+          createdAt: DateTime(2024),
+          updatedAt: DateTime(2024),
+        ),
+      ],
+    );
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboard = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+    // Inline card: not clamped, its row grows with the text.
+    final row = find.byType(CommentRow);
+    expect(row, findsOneWidget);
+    expect(tester.getSize(row).height, greaterThan(DiffMetrics.comment + 40));
+    final para = tester.renderObject<RenderParagraph>(
+      find.descendant(of: row, matching: find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText() == text)),
+    );
+    expect(para.didExceedMaxLines, isFalse);
+    expect(para.size.height, lessThanOrEqualTo(tester.getSize(row).height));
+
+    await tester.tap(find.descendant(of: row, matching: find.byTooltip('Copiar ruta y líneas')));
+    await tester.pump();
+    expect(clipboard, 'src/greet.ts L2-L3');
+    await tester.pump(const Duration(seconds: 2));
+
+    // Side panel card: every action hidden until hovered.
+    final ws = tester.widget<DiffView>(find.byType(DiffView)).workspace;
+    ws.openLeftTab(1);
+    await tester.pumpAndSettle();
+    final card = find.byType(CommentCard);
+    expect(card, findsOneWidget);
+    bool shown(String tip) => tester
+        .widget<Visibility>(
+          find.ancestor(
+            of: find.descendant(of: card, matching: find.byTooltip(tip)),
+            matching: find.byType(Visibility),
+          ),
+        )
+        .visible;
+    const tips = ['Copiar comentario', 'Copiar ruta y líneas', 'Denegar', 'Editar', 'Eliminar'];
+    for (final t in tips) {
+      expect(shown(t), isFalse, reason: t);
+    }
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(card));
+    await tester.pump();
+    for (final t in tips) {
+      expect(shown(t), isTrue, reason: t);
+    }
+
+    await tester.tap(find.descendant(of: card, matching: find.byTooltip('Copiar ruta y líneas')));
+    await tester.pump();
+    expect(clipboard, 'src/greet.ts L2-L3');
+    await tester.pump(const Duration(seconds: 2));
+
+    // Clicking the card goes to the comment without opening the composer.
+    await tester.tap(find.descendant(of: card, matching: find.text('src/greet.ts L2-L3')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CommentComposer), findsNothing);
+    // The edit button still opens it.
+    await tester.tap(find.descendant(of: card, matching: find.byTooltip('Editar')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CommentComposer), findsOneWidget);
 
     shell.closeReview();
     await tester.pumpAndSettle();

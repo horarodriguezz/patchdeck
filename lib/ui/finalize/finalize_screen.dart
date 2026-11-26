@@ -207,6 +207,7 @@ class _FinalizeScreenState extends State<FinalizeScreen> {
               snippet: model == null || keys.isEmpty ? null : CodeSnippet(model: model, keys: keys),
               onTap: () => widget.onOpenInDiff(c, p.id),
               onCopy: () => actions.copyOne(c, patchId: p.id),
+              onCopyLocation: () => actions.copyLocation(c, patchId: p.id),
               onToggleDismissed: () => actions.toggleDismissed(c),
               onEdit: () => actions.edit(c),
               onDelete: () => actions.delete(c),

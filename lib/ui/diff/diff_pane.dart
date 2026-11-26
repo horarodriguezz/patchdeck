@@ -1,13 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../app_scope.dart';
 import '../../diff/diff_layout.dart';
+import '../../models/app_settings.dart';
 import '../common/glyphs.dart';
 import 'comment_callbacks.dart';
 import '../../state/code_selection.dart';
 import '../../state/diff_search.dart';
 import '../../state/selection_controller.dart';
 import '../../state/workspace_controller.dart';
+import 'diff_rows.dart';
 import 'diff_view.dart';
 
 /// One patch: a slim toolbar (stats, jump-to-file, collapse) + its DiffView.
@@ -38,10 +42,43 @@ class DiffPane extends StatefulWidget {
 class _DiffPaneState extends State<DiffPane> {
   final ScrollController _scroll = ScrollController();
 
+  /// Text width of the inline comment cards in the last build (their
+  /// height, and so the layout, depends on it).
+  double _commentWidth = 0;
+
+  DiffLayout _layout(BuildContext context, DiffMetrics metrics, DiffMode mode) {
+    final measure = CommentRow.measurer(context);
+    return widget.workspace.layout(
+      widget.patchId,
+      mode,
+      metrics,
+      commentWidth: _commentWidth,
+      commentExtent: (c, w) => measure(c.text, w),
+    )!;
+  }
+
   /// Scrolls so [key] sits about a third from the top of the viewport. With
   /// [ifNeeded] nothing moves when the line is already comfortably in view.
-  void _scrollTo(DiffLayout layout, LineKey key, {bool ifNeeded = false}) {
+  void _scrollTo(DiffLayout layout, LineKey key, {bool ifNeeded = false, String? commentId}) {
     if (!mounted || !_scroll.hasClients) return;
+    if (commentId != null) {
+      // The comment's inline card in that file (it follows its last line).
+      var row = layout.rows.indexWhere(
+        (r) => r.kind == RowKind.comment && r.commentId == commentId && r.file == key.$2,
+      );
+      if (row < 0) row = layout.rows.indexWhere((r) => r.kind == RowKind.comment && r.commentId == commentId);
+      if (row >= 0) {
+        final pos = _scroll.position;
+        // Bottom of the card at two thirds of the viewport (so the commented
+        // lines above stay in view), but never hide its top under the
+        // pinned file header.
+        final target = math
+            .min(layout.offsets[row] - 48, layout.offsets[row + 1] - pos.viewportDimension * 2 / 3)
+            .clamp(0.0, pos.maxScrollExtent);
+        _scroll.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+        return;
+      }
+    }
     if (key.isFile) {
       // A whole file: put its header at the top.
       if (key.$2 >= layout.fileRow.length) return;
@@ -80,13 +117,8 @@ class _DiffPaneState extends State<DiffPane> {
       return const Center(child: CircularProgressIndicator());
     }
     final metrics = DiffMetrics(settings.codeFontSize);
-    final layout = ws.layout(widget.patchId, settings.diffMode, metrics)!;
     final parsed = model.parsed;
     final muted = theme.colorScheme.onSurfaceVariant;
-    final reveal = ws.takeReveal(widget.patchId);
-    if (reveal != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollTo(layout, reveal.$1, ifNeeded: reveal.$2));
-    }
     final viewed = ws.viewedCount(widget.patchId);
 
     return Column(
@@ -149,7 +181,7 @@ class _DiffPaneState extends State<DiffPane> {
                   icon: Icon(Icons.list_alt, size: 18, color: muted),
                   onSelected: (f) {
                     // Re-read the layout: it may have changed since the menu opened.
-                    final l = ws.layout(widget.patchId, settings.diffMode, metrics)!;
+                    final l = _layout(context, metrics, settings.diffMode);
                     final target = l.offsets[l.fileRow[f]];
                     _scroll.jumpTo(target.clamp(0.0, _scroll.position.maxScrollExtent));
                   },
@@ -199,17 +231,32 @@ class _DiffPaneState extends State<DiffPane> {
               ? Center(
                   child: Text('No se encontraron cambios en este patch', style: TextStyle(color: muted)),
                 )
-              : DiffView(
-                  workspace: ws,
-                  selection: widget.selection,
-                  model: model,
-                  layout: layout,
-                  mode: settings.diffMode,
-                  metrics: metrics,
-                  controller: _scroll,
-                  callbacks: widget.callbacks,
-                  search: widget.search,
-                  codeSelection: widget.codeSelection,
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    _commentWidth = CommentRow.textWidth(
+                      constraints.maxWidth,
+                      DiffView.codeIndent(metrics, settings.diffMode),
+                    );
+                    final layout = _layout(context, metrics, settings.diffMode);
+                    final reveal = ws.takeReveal(widget.patchId);
+                    if (reveal != null) {
+                      WidgetsBinding.instance.addPostFrameCallback(
+                        (_) => _scrollTo(layout, reveal.$1, ifNeeded: reveal.$2, commentId: reveal.$3),
+                      );
+                    }
+                    return DiffView(
+                      workspace: ws,
+                      selection: widget.selection,
+                      model: model,
+                      layout: layout,
+                      mode: settings.diffMode,
+                      metrics: metrics,
+                      controller: _scroll,
+                      callbacks: widget.callbacks,
+                      search: widget.search,
+                      codeSelection: widget.codeSelection,
+                    );
+                  },
                 ),
         ),
       ],

@@ -180,6 +180,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
         },
       ),
       copy: (c, patchId) => actions.copyOne(c, patchId: patchId),
+      copyLocation: (c, patchId) => actions.copyLocation(c, patchId: patchId),
       toggleDismissed: actions.toggleDismissed,
     );
   }

@@ -58,6 +58,12 @@ class DiffView extends StatefulWidget {
 
   @override
   State<DiffView> createState() => _DiffViewState();
+
+  /// Left offset of inline comment cards (where the code text starts).
+  static double codeIndent(DiffMetrics m, DiffMode mode) {
+    final numberWidth = m.charWidth * 5 + 12;
+    return mode == DiffMode.unified ? numberWidth * 2 + 36 : numberWidth + 36;
+  }
 }
 
 class _DiffViewState extends State<DiffView> {
@@ -659,7 +665,7 @@ class _DiffViewState extends State<DiffView> {
     final counts = _commentCounts();
     final collapsed = widget.workspace.collapsedFiles(widget.model.id);
     final unified = widget.mode == DiffMode.unified;
-    final codeIndent = unified ? numberWidth * 2 + 36 : numberWidth + 36;
+    final codeIndent = DiffView.codeIndent(m, widget.mode);
     final dividerColor = context.diffTheme.border;
     final search = widget.search;
 
@@ -688,6 +694,7 @@ class _DiffViewState extends State<DiffView> {
             onEdit: () => widget.callbacks.edit(c),
             onDelete: () => widget.callbacks.delete(c),
             onCopy: () => widget.callbacks.copy(c, widget.model.id),
+            onCopyLocation: () => widget.callbacks.copyLocation(c, widget.model.id),
             onToggleDismissed: () => widget.callbacks.toggleDismissed(c),
           );
         case RowKind.line:

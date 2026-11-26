@@ -351,7 +351,9 @@ class PreambleRow extends StatelessWidget {
   }
 }
 
-/// Fixed-height comment card rendered inline after the last commented line.
+/// Comment card rendered inline after the last commented line. Its height
+/// is computed up front by [measurer] (the diff list needs every row's
+/// extent), so the whole text is shown.
 class CommentRow extends StatelessWidget {
   const CommentRow({
     super.key,
@@ -361,6 +363,7 @@ class CommentRow extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onCopy,
+    required this.onCopyLocation,
     required this.onToggleDismissed,
     required this.indent,
   });
@@ -371,8 +374,42 @@ class CommentRow extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onCopy;
+  final VoidCallback onCopyLocation;
   final VoidCallback onToggleDismissed;
   final double indent;
+
+  // Vertical chrome around the text: outer padding (6+6), inner padding
+  // (6+6), header row (icon 15 + 2*4 padding), gap (4).
+  static const double _chrome = 12 + 12 + 23 + 4;
+  static const double _minTextHeight = 13 * 1.35;
+  static const TextStyle _textStyle = TextStyle(fontSize: 13, height: 1.35);
+
+  /// Width available to the text of a card in a diff [viewWidth] wide:
+  /// minus indent, right padding (12), accent bar (4) and inner padding (10+4).
+  static double textWidth(double viewWidth, double indent) => (viewWidth - indent - 30).floorToDouble();
+
+  static String _display(String text) => text.isEmpty ? '(sin texto)' : text;
+
+  /// Returns a function giving the row extent of a comment text at a given
+  /// text width, using the same style and text scaling the card renders with.
+  static double Function(String text, double width) measurer(BuildContext context) {
+    // The card's Material sets bodyMedium as the default text style.
+    final style = (Theme.of(context).textTheme.bodyMedium ?? const TextStyle()).merge(_textStyle);
+    final scaler = MediaQuery.textScalerOf(context);
+    final dir = Directionality.of(context);
+    return (text, width) {
+      if (width <= 0) return DiffMetrics.comment;
+      final tp = TextPainter(
+        text: TextSpan(text: _display(text), style: style),
+        textDirection: dir,
+        textScaler: scaler,
+      )..layout(maxWidth: width);
+      final h = tp.height < _minTextHeight ? _minTextHeight : tp.height;
+      tp.dispose();
+      // +1 so rounding never clips the last line.
+      return (_chrome + h + 1).ceilToDouble();
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -436,6 +473,7 @@ class CommentRow extends StatelessWidget {
                               Text(summary, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
                               const SizedBox(width: 6),
                               _MiniIcon(icon: Icons.content_copy, tip: 'Copiar comentario', onTap: onCopy),
+                              _MiniIcon(icon: Icons.link, tip: 'Copiar ruta y líneas', onTap: onCopyLocation),
                               _MiniIcon(
                                 icon: dismissed ? Icons.restore : Icons.block,
                                 tip: dismissed ? 'Restaurar' : 'Denegar',
@@ -448,12 +486,8 @@ class CommentRow extends StatelessWidget {
                           const SizedBox(height: 4),
                           Expanded(
                             child: Text(
-                              comment.text.isEmpty ? '(sin texto)' : comment.text,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 1.35,
+                              _display(comment.text),
+                              style: _textStyle.copyWith(
                                 color: dismissed ? muted : null,
                                 decoration: dismissed ? TextDecoration.lineThrough : null,
                                 decorationColor: muted,

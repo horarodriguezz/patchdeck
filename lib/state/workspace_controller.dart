@@ -57,6 +57,7 @@ class WorkspaceController extends ChangeNotifier {
   /// A line a pane should scroll to on its next build (see [reveal]).
   LineKey? _pendingReveal;
   bool _pendingRevealIfNeeded = false;
+  String? _pendingRevealComment;
 
   // ---------------------------------------------------------------- patches
 
@@ -226,12 +227,24 @@ class WorkspaceController extends ChangeNotifier {
     _changed();
   }
 
-  /// Cached: rebuilt only when the mode, font, collapsed set or comments change.
-  DiffLayout? layout(String patchId, DiffMode mode, DiffMetrics metrics) {
+  /// Cached: rebuilt only when the mode, font, collapsed set or comments
+  /// change, or when [commentWidth] (the text width of inline comments,
+  /// measured by [commentExtent]) changes and the patch has comments.
+  DiffLayout? layout(
+    String patchId,
+    DiffMode mode,
+    DiffMetrics metrics, {
+    double commentWidth = 0,
+    double Function(ReviewComment comment, double width)? commentExtent,
+  }) {
     final m = _models[patchId];
     if (m == null) return null;
     final c = _layoutCache[patchId];
-    if (c != null && c.mode == mode && c.fontSize == metrics.fontSize && c.commentsVersion == _commentsVersion) {
+    if (c != null &&
+        c.mode == mode &&
+        c.fontSize == metrics.fontSize &&
+        c.commentsVersion == _commentsVersion &&
+        (c.commentWidth == commentWidth || !c.layout.hasComments)) {
       return c.layout;
     }
     final l = buildDiffLayout(
@@ -241,8 +254,14 @@ class WorkspaceController extends ChangeNotifier {
       metrics: metrics,
       collapsedFiles: collapsedFiles(patchId),
       commentsByLine: _commentsByLine(m),
+      commentExtent: commentExtent == null
+          ? null
+          : (id) {
+              final cm = comment(id);
+              return cm == null ? DiffMetrics.comment : commentExtent(cm, commentWidth);
+            },
     );
-    _layoutCache[patchId] = _LayoutCacheEntry(mode, metrics.fontSize, _commentsVersion, l);
+    _layoutCache[patchId] = _LayoutCacheEntry(mode, metrics.fontSize, _commentsVersion, commentWidth, l);
     return l;
   }
 
@@ -381,8 +400,9 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   /// Makes the line's patch visible, expands its file and asks the pane to
-  /// scroll there. With [ifNeeded] the pane only scrolls if the line is off screen.
-  void reveal(LineKey k, {bool ifNeeded = false}) {
+  /// scroll there. With [ifNeeded] the pane only scrolls if the line is off
+  /// screen; with [commentId] it scrolls to that comment's inline card.
+  void reveal(LineKey k, {bool ifNeeded = false, String? commentId}) {
     if (!_visible.contains(k.$1)) {
       _visible
         ..clear()
@@ -391,14 +411,15 @@ class WorkspaceController extends ChangeNotifier {
     if (_collapsed[k.$1]?.remove(k.$2) ?? false) _layoutCache.remove(k.$1);
     _pendingReveal = k;
     _pendingRevealIfNeeded = ifNeeded;
+    _pendingRevealComment = commentId;
     notifyListeners();
   }
 
-  (LineKey, bool)? takeReveal(String patchId) {
+  (LineKey, bool, String?)? takeReveal(String patchId) {
     final k = _pendingReveal;
     if (k == null || k.$1 != patchId) return null;
     _pendingReveal = null;
-    return (k, _pendingRevealIfNeeded);
+    return (k, _pendingRevealIfNeeded, _pendingRevealComment);
   }
 
   /// Jumps to file [file] of [patchId] (expanding it).
@@ -558,10 +579,11 @@ class WorkspaceController extends ChangeNotifier {
 }
 
 class _LayoutCacheEntry {
-  _LayoutCacheEntry(this.mode, this.fontSize, this.commentsVersion, this.layout);
+  _LayoutCacheEntry(this.mode, this.fontSize, this.commentsVersion, this.commentWidth, this.layout);
   final DiffMode mode;
   final double fontSize;
   final int commentsVersion;
+  final double commentWidth;
   final DiffLayout layout;
   Set<LineKey>? commented;
 }
